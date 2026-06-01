@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#16130f">
+<title>Time Bandit — DCLabs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#16130f;
+    --panel:#1f1b16;
+    --panel2:#27221b;
+    --line:#3a3229;
+    --orange:#ff5a00;
+    --orange-d:#cc4600;
+    --amber:#ffb000;
+    --ink:#f4ede2;
+    --mute:#a99b87;
+    --green:#34c759;
+    --red:#ff453a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Archivo',sans-serif;}
+  body{
+    min-height:100vh;
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,90,0,.025) 0 14px, transparent 14px 28px),
+      radial-gradient(circle at 50% -10%, rgba(255,90,0,.10), transparent 55%);
+  }
+  .wrap{max-width:540px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+  header{
+    padding:18px 20px 14px;border-bottom:2px solid var(--line);
+    display:flex;align-items:center;gap:12px;position:sticky;top:0;
+    background:linear-gradient(180deg,var(--bg),rgba(22,19,15,.92));backdrop-filter:blur(6px);z-index:20;
+  }
+  .badge{
+    width:42px;height:42px;flex:none;border-radius:9px;background:var(--orange);
+    display:grid;place-items:center;font-family:'Oswald';font-weight:700;font-size:22px;color:#1a1209;
+    box-shadow:0 0 0 2px var(--orange-d), 0 6px 14px rgba(255,90,0,.35);
+  }
+  .wordmark{font-family:'Oswald';font-weight:700;letter-spacing:.5px;line-height:1;}
+  .wordmark .t{font-size:23px;text-transform:uppercase;}
+  .wordmark .s{font-size:11px;letter-spacing:3px;color:var(--mute);text-transform:uppercase;font-family:'Archivo';font-weight:600;}
+  main{flex:1;padding:22px 20px 40px;}
+  .screen{display:none;animation:rise .35s ease both;}
+  .screen.on{display:block;}
+  @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+  h1{font-family:'Oswald';font-weight:600;font-size:26px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.5px;}
+  h2{font-family:'Oswald';font-weight:500;font-size:15px;letter-spacing:2px;color:var(--amber);text-transform:uppercase;margin:0 0 14px;}
+  p.lead{color:var(--mute);font-size:15px;line-height:1.55;margin:0 0 18px;}
+  label{display:block;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--mute);margin:0 0 7px;}
+  input[type=text]{
+    width:100%;padding:16px 16px;font-size:18px;font-family:'Archivo';font-weight:600;
+    background:var(--panel);border:2px solid var(--line);border-radius:11px;color:var(--ink);margin-bottom:18px;
+  }
+  input:focus{outline:none;border-color:var(--orange);}
+  .btn{
+    display:flex;align-items:center;justify-content:center;gap:10px;width:100%;
+    border:none;border-radius:13px;font-family:'Oswald';font-weight:600;font-size:21px;letter-spacing:.6px;
+    text-transform:uppercase;padding:22px;cursor:pointer;color:#1a1209;background:var(--orange);
+    box-shadow:0 6px 0 var(--orange-d);transition:transform .07s, box-shadow .07s;margin-bottom:14px;
+  }
+  .btn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--orange-d);}
+  .btn.lg{padding:30px;font-size:26px;}
+  .btn.ghost{background:var(--panel2);color:var(--ink);box-shadow:0 6px 0 #1a1611;}
+  .btn.ghost:active{box-shadow:0 2px 0 #1a1611;}
+  .btn.green{background:var(--green);box-shadow:0 6px 0 #208a3d;color:#06210f;}
+  .btn.red{background:var(--red);box-shadow:0 6px 0 #b22;color:#2a0805;}
+  .btn.sm{font-size:16px;padding:16px;}
+  .btn:disabled{opacity:.4;box-shadow:none;transform:none;cursor:not-allowed;}
+  .ack{
+    display:flex;gap:14px;align-items:flex-start;background:var(--panel);border:2px solid var(--line);
+    border-radius:12px;padding:16px;margin:0 0 20px;cursor:pointer;
+  }
+  .ack input{width:26px;height:26px;flex:none;margin-top:2px;accent-color:var(--orange);}
+  .ack span{font-size:14px;line-height:1.45;color:var(--ink);}
+  .fine{background:var(--panel);border-left:3px solid var(--amber);border-radius:0 10px 10px 0;padding:14px 16px;font-size:13px;line-height:1.55;color:var(--mute);margin:0 0 20px;}
+  .timer{
+    text-align:center;background:var(--panel);border:2px solid var(--line);border-radius:16px;
+    padding:26px 16px;margin:0 0 18px;position:relative;overflow:hidden;
+  }
+  .timer .clock{font-family:'Oswald';font-weight:700;font-size:60px;line-height:1;letter-spacing:1px;font-variant-numeric:tabular-nums;}
+  .timer .clock.run{color:var(--orange);text-shadow:0 0 22px rgba(255,90,0,.45);}
+  .timer .state{font-family:'Oswald';font-size:14px;letter-spacing:3px;text-transform:uppercase;color:var(--mute);margin-bottom:10px;}
+  .timer .state.brk{color:var(--amber);}
+  .row{display:flex;gap:12px;}
+  .row .btn{margin-bottom:14px;}
+  .meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 18px;}
+  .meta .cell{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  .meta .cell .k{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mute);font-weight:700;}
+  .meta .cell .v{font-size:16px;font-weight:700;margin-top:3px;}
+  .net{background:var(--orange);border-radius:16px;padding:24px;text-align:center;margin:0 0 20px;color:#1a1209;box-shadow:0 8px 22px rgba(255,90,0,.3);}
+  .net .k{font-family:'Oswald';font-size:14px;letter-spacing:3px;text-transform:uppercase;opacity:.8;}
+  .net .v{font-family:'Oswald';font-weight:700;font-size:54px;line-height:1;margin-top:4px;font-variant-numeric:tabular-nums;}
+  .rows{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:0 0 20px;}
+  .rows .r{display:flex;justify-content:space-between;padding:14px 16px;font-size:15px;border-bottom:1px solid var(--line);}
+  .rows .r:last-child{border-bottom:none;}
+  .rows .r .k{color:var(--mute);}
+  .rows .r .v{font-weight:700;}
+  #qrbox{background:#fff;border-radius:16px;padding:22px;display:grid;place-items:center;margin:0 auto 18px;width:fit-content;}
+  #qrbox canvas,#qrbox img{display:block;}
+  .qrcap{text-align:center;font-size:13px;color:var(--mute);margin:0 0 18px;line-height:1.5;}
+  .qrurl{word-break:break-all;color:var(--amber);font-weight:700;}
+  footer{padding:16px 20px;border-top:1px solid var(--line);text-align:center;color:var(--mute);font-size:11px;letter-spacing:.5px;}
+  .navlink{background:none;border:none;color:var(--amber);font-family:'Archivo';font-weight:700;font-size:14px;letter-spacing:.5px;cursor:pointer;padding:6px;text-decoration:underline;}
+  .tag{display:inline-block;font-family:'Oswald';font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange-d);border-radius:6px;padding:3px 9px;margin-bottom:14px;}
+  @media print{
+    body{background:#fff;}
+    header,footer,.btn,.navlink,.qrcap .noprint{display:none!important;}
+    #qrbox{box-shadow:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="badge">TB</div>
+    <div class="wordmark"><div class="t">Time Bandit</div><div class="s">DCLabs Field Time</div></div>
+  </header>
+  <main>
+
+    <!-- 1. DISCLAIMER -->
+    <section class="screen on" id="s-disc">
+      <span class="tag">Step 1 — Agreement</span>
+      <h1>Before You Clock In</h1>
+      <p class="lead">Read and accept the time-record agreement. This applies to every shift you log on this device.</p>
+      <div class="fine">
+        By clocking in, I confirm I am responsible for entering my hours <b>accurately and on time</b>. I understand my
+        clock-in, clock-out, break, and lunch entries are my own record. I acknowledge that late, missing, or incorrect
+        entries may delay payment of those hours until the <b>next payroll period</b>. I agree this electronic record is
+        a true statement of the time I worked.
+      </div>
+      <label class="ack">
+        <input type="checkbox" id="ackBox">
+        <span>I have read and agree to the time-record agreement above.</span>
+      </label>
+      <button class="btn" id="ackBtn" disabled onclick="acceptAck()">I Agree — Continue</button>
+    </section>
+
+    <!-- 2. SETUP -->
+    <section class="screen" id="s-setup">
+      <span class="tag">Step 2 — Setup</span>
+      <h1>Who & Where</h1>
+      <p class="lead">Fill this in once for the day. It saves on this phone.</p>
+      <label>Your Name</label>
+      <input type="text" id="fName" placeholder="First & last name" autocomplete="name">
+      <label>Job Name</label>
+      <input type="text" id="fJob" placeholder="e.g. Pointe Grand Mesa">
+      <label>Job Number</label>
+      <input type="text" id="fJobNum" placeholder="e.g. 24-118" inputmode="numeric">
+      <label>Cost Code</label>
+      <input type="text" id="fCode" placeholder="e.g. 02-220 Sewer">
+      <button class="btn" onclick="saveSetup()">Save & Go to Clock</button>
+      <div style="text-align:center"><button class="navlink" onclick="show('s-qr')">Get the QR Code to share →</button></div>
+    </section>
+
+    <!-- 3. SHIFT -->
+    <section class="screen" id="s-shift">
+      <span class="tag" id="shiftTag">Step 3 — On the Clock</span>
+      <div class="timer">
+        <div class="state" id="tState">Ready to start</div>
+        <div class="clock" id="tClock">00:00:00</div>
+      </div>
+      <div class="meta" id="shiftMeta"></div>
+      <button class="btn green lg" id="clockBtn" onclick="clockIn()">Clock In</button>
+      <div class="row" id="breakRow" style="display:none">
+        <button class="btn ghost sm" id="breakBtn" onclick="toggleBreak()">Start Break</button>
+        <button class="btn ghost sm" id="lunchBtn" onclick="toggleLunch()">Start Lunch</button>
+      </div>
+      <button class="btn red" id="clockOutBtn" style="display:none" onclick="clockOut()">Clock Out</button>
+      <div style="text-align:center"><button class="navlink" onclick="resetDay()">Start a new day / clear</button></div>
+    </section>
+
+    <!-- 4. REPORT -->
+    <section class="screen" id="s-report">
+      <span class="tag">Shift Complete</span>
+      <h1 id="rTitle">Daily Time Record</h1>
+      <div class="net"><div class="k">Net Hours Worked</div><div class="v" id="rNet">0.00 hrs</div></div>
+      <div class="rows" id="rRows"></div>
+      <button class="btn" onclick="exportPDF()">Download PDF</button>
+      <button class="btn ghost" onclick="exportCSV()">Download CSV</button>
+      <button class="btn green" onclick="emailReport()">Email to Payroll</button>
+      <div style="text-align:center"><button class="navlink" onclick="resetDay()">Done — start a new day</button></div>
+    </section>
+
+    <!-- 5. QR -->
+    <section class="screen" id="s-qr">
+      <span class="tag">Crew Share</span>
+      <h1>Share With the Crew</h1>
+      <p class="lead">This QR points to wherever this app is hosted. Paste the live web address, then screenshot or print it for the trailer door.</p>
+      <label>App URL</label>
+      <input type="text" id="qrUrl" placeholder="https://your-site.com" oninput="makeQR()">
+      <div id="qrbox"></div>
+      <div class="qrcap"><span class="noprint">Pointing to:</span> <span class="qrurl" id="qrShow">— enter a URL —</span></div>
+      <button class="btn ghost noprint" onclick="window.print()">Print This QR</button>
+      <div style="text-align:center" class="noprint"><button class="navlink" onclick="show('s-shift')">← Back to clock</button></div>
+    </section>
+
+  </main>
+  <footer>TIME BANDIT · DCLabs LLC · runs in your phone browser · data stays on this device</footer>
+</div>
+
+<script>
+const PAYROLL_EMAIL = "dclark@barnettinc.com";
+const COMPANY = "BARNETT CONTRACTING";
+const LS = "timebandit_v2";
+
+let S = load() || {
+  ack:false, ackTime:null,
+  name:"", job:"", jobNum:"", code:"",
+  inAt:null, outAt:null,
+  onBreak:false, breakStart:null, breakMs:0,
+  onLunch:false, lunchStart:null, lunchMs:0
+};
+let ticker=null;
+
+function save(){ localStorage.setItem(LS, JSON.stringify(S)); }
+function load(){ try{ return JSON.parse(localStorage.getItem(LS)); }catch(e){ return null; } }
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  window.scrollTo(0,0);
+}
+
+/* ---- ack ---- */
+document.getElementById('ackBox').addEventListener('change',e=>{
+  document.getElementById('ackBtn').disabled = !e.target.checked;
+});
+function acceptAck(){
+  S.ack=true; S.ackTime=new Date().toISOString(); save();
+  fillSetup(); show('s-setup');
+}
+
+/* ---- setup ---- */
+function fillSetup(){
+  fName.value=S.name; fJob.value=S.job; fJobNum.value=S.jobNum; fCode.value=S.code;
+}
+function saveSetup(){
+  S.name=fName.value.trim(); S.job=fJob.value.trim();
+  S.jobNum=fJobNum.value.trim(); S.code=fCode.value.trim();
+  if(!S.name){ alert("Enter your name first."); return; }
+  save(); renderShift(); show('s-shift');
+}
+
+/* ---- shift ---- */
+function fmtHMS(ms){
+  if(ms<0)ms=0; let s=Math.floor(ms/1000);
+  let h=String(Math.floor(s/3600)).padStart(2,'0');
+  let m=String(Math.floor(s%3600/60)).padStart(2,'0');
+  let ss=String(s%60).padStart(2,'0');
+  return h+":"+m+":"+ss;
+}
+function fmtTime(iso){ return iso? new Date(iso).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}) : "—"; }
+
+function renderShift(){
+  const meta=document.getElementById('shiftMeta');
+  meta.innerHTML =
+    cell("Worker",S.name||"—")+cell("Job",S.job||"—")+
+    cell("Job #",S.jobNum||"—")+cell("Cost Code",S.code||"—");
+  const clockBtn=document.getElementById('clockBtn');
+  const outBtn=document.getElementById('clockOutBtn');
+  const brkRow=document.getElementById('breakRow');
+  if(S.inAt && !S.outAt){
+    clockBtn.style.display='none'; outBtn.style.display='flex'; brkRow.style.display='flex';
+    document.getElementById('breakBtn').textContent = S.onBreak? "End Break":"Start Break";
+    document.getElementById('lunchBtn').textContent = S.onLunch? "End Lunch":"Start Lunch";
+    startTicker();
+  } else {
+    clockBtn.style.display='flex'; outBtn.style.display='none'; brkRow.style.display='none';
+    stopTicker(); paintClock();
+  }
+}
+function cell(k,v){ return `<div class="cell"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
+
+function curBreakMs(){ return S.breakMs + (S.onBreak? Date.now()-S.breakStart : 0); }
+function curLunchMs(){ return S.lunchMs + (S.onLunch? Date.now()-S.lunchStart : 0); }
+
+function paintClock(){
+  const clk=document.getElementById('tClock');
+  const st=document.getElementById('tState');
+  if(!S.inAt){ clk.textContent="00:00:00"; clk.className="clock"; st.textContent="Ready to start"; st.className="state"; return; }
+  const end = S.outAt? S.outAt : Date.now();
+  const net = (end - S.inAt) - curBreakMs() - curLunchMs();
+  clk.textContent=fmtHMS(net);
+  if(S.onBreak||S.onLunch){ clk.className="clock"; st.className="state brk"; st.textContent = S.onBreak?"On break — paused":"At lunch — paused"; }
+  else if(!S.outAt){ clk.className="clock run"; st.className="state"; st.textContent="On the clock — net time"; }
+  else { clk.className="clock"; st.className="state"; st.textContent="Shift ended"; }
+}
+function startTicker(){ stopTicker(); paintClock(); ticker=setInterval(paintClock,1000); }
+function stopTicker(){ if(ticker){ clearInterval(ticker); ticker=null; } }
+
+function clockIn(){ S.inAt=Date.now(); S.outAt=null; S.breakMs=0; S.lunchMs=0; S.onBreak=false; S.onLunch=false; save(); renderShift(); }
+function toggleBreak(){
+  if(S.onLunch) return alert("End lunch first.");
+  if(S.onBreak){ S.breakMs+=Date.now()-S.breakStart; S.onBreak=false; S.breakStart=null; }
+  else { S.onBreak=true; S.breakStart=Date.now(); }
+  save(); renderShift();
+}
+function toggleLunch(){
+  if(S.onBreak) return alert("End break first.");
+  if(S.onLunch){ S.lunchMs+=Date.now()-S.lunchStart; S.onLunch=false; S.lunchStart=null; }
+  else { S.onLunch=true; S.lunchStart=Date.now(); }
+  save(); renderShift();
+}
+function clockOut(){
+  if(S.onBreak) toggleBreak();
+  if(S.onLunch) toggleLunch();
+  S.outAt=Date.now(); save(); stopTicker(); buildReport(); show('s-report');
+}
+function resetDay(){
+  if(!confirm("Clear this shift and start fresh?")) return;
+  const keep={name:S.name,job:S.job,jobNum:S.jobNum,code:S.code,ack:S.ack,ackTime:S.ackTime};
+  S={...keep,inAt:null,outAt:null,onBreak:false,breakStart:null,breakMs:0,onLunch:false,lunchStart:null,lunchMs:0};
+  save(); renderShift(); show('s-shift');
+}
+
+/* ---- report ---- */
+function D(){
+  const gross = S.outAt - S.inAt;
+  const brk = curBreakMs(), lnch = curLunchMs();
+  const net = gross - brk - lnch;
+  return {
+    name:S.name, job:S.job, jobNum:S.jobNum, code:S.code,
+    date:new Date(S.inAt).toLocaleDateString(),
+    inT:fmtTime(S.inAt), outT:fmtTime(S.outAt),
+    grossFmt:fmtHMS(gross), grossHrs:(gross/3.6e6).toFixed(2),
+    brkMins:Math.round(brk/60000), lnchMins:Math.round(lnch/60000),
+    netHrs:(net/3.6e6).toFixed(2),
+    ackTime:S.ackTime? new Date(S.ackTime).toLocaleString():"—"
+  };
+}
+function buildReport(){
+  const d=D();
+  document.getElementById('rTitle').textContent = d.name+" — "+d.date;
+  document.getElementById('rNet').textContent = d.netHrs+" hrs";
+  document.getElementById('rRows').innerHTML =
+    rrow("Job",d.job)+rrow("Job Number",d.jobNum)+rrow("Cost Code",d.code)+
+    rrow("Clock In",d.inT)+rrow("Clock Out",d.outT)+
+    rrow("Gross Time",d.grossFmt)+rrow("Break",d.brkMins+" min")+rrow("Lunch",d.lnchMins+" min")+
+    rrow("Net Hours",d.netHrs+" hrs");
+}
+function rrow(k,v){ return `<div class="r"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
+
+/* ---- exports ---- */
+function exportCSV(){
+  const d=D();
+  const rows=[
+    ["Company",COMPANY],["Worker",d.name],["Job Name",d.job],["Job Number",d.jobNum],
+    ["Date",d.date],["Cost Code",d.code],["Clock In",d.inT],["Clock Out",d.outT],
+    ["Gross Hours",d.grossHrs],["Break (min)",d.brkMins],["Lunch (min)",d.lnchMins],
+    ["NET HOURS",d.netHrs],["Agreement Accepted",d.ackTime]
+  ];
+  const csv=rows.map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  dl(new Blob([csv],{type:"text/csv"}), `timesheet_${slug(d.name)}_${stamp()}.csv`);
+}
+function exportPDF(){
+  const d=D(); const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:'pt',format:'letter'});
+  doc.setFillColor(22,19,15); doc.rect(0,0,612,70,'F');
+  doc.setFillColor(255,90,0); doc.rect(0,66,612,4,'F');
+  doc.setTextColor(255,90,0); doc.setFont('helvetica','bold'); doc.setFontSize(22);
+  doc.text("TIME BANDIT",40,42);
+  doc.setTextColor(200,200,200); doc.setFontSize(10);
+  doc.text(COMPANY+" — Daily Time Record",40,57);
+  const fields=[["Worker",d.name],["Job Name",d.job],["Job Number",d.jobNum],["Date",d.date],
+    ["Cost Code",d.code],["Clock In",d.inT],["Clock Out",d.outT],["Gross Time",d.grossFmt+"  ("+d.grossHrs+" hrs)"],
+    ["Break",d.brkMins+" min"],["Lunch",d.lnchMins+" min"]];
+  let y=108;
+  fields.forEach(([k,v],i)=>{
+    if(i%2===0){doc.setFillColor(246,246,246);doc.rect(28,y-18,556,30,'F');}
+    doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(160,80,0);doc.text(k,40,y);
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(30,30,30);doc.text(String(v),200,y);
+    y+=34;
+  });
+  y+=10; doc.setFillColor(255,90,0); doc.roundedRect(28,y,556,95,10,10,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold');
+  doc.setFontSize(15); doc.text('NET HOURS WORKED',306,y+30,{align:'center'});
+  doc.setFontSize(52); doc.text(d.netHrs+' hrs',306,y+80,{align:'center'});
+  y+=130; doc.setFontSize(9); doc.setTextColor(120,120,120);
+  doc.text("Agreement accepted: "+d.ackTime,40,y);
+  doc.setTextColor(180,180,180);
+  doc.text('Generated by Time Bandit — DCLabs LLC — '+new Date().toLocaleString(),40,755);
+  doc.text(PAYROLL_EMAIL,582,755,{align:'right'});
+  doc.save(`timesheet_${slug(d.name)}_${stamp()}.pdf`);
+}
+function emailReport(){
+  const d=D();
+  const sub=`Timesheet — ${d.name} — Job ${d.jobNum} — ${d.date}`;
+  const body=
+`${COMPANY} — DAILY TIME RECORD
+==========================================
+Worker:      ${d.name}
+Job Name:    ${d.job}
+Job Number:  ${d.jobNum}
+Date:        ${d.date}
+Cost Code:   ${d.code}
+Clock In:    ${d.inT}
+Clock Out:   ${d.outT}
+Gross Time:  ${d.grossFmt} (${d.grossHrs} hrs)
+Break:       ${d.brkMins} min
+Lunch:       ${d.lnchMins} min
+NET HOURS:   ${d.netHrs} hrs
+==========================================
+Agreement accepted: ${d.ackTime}
+
+NOTE: Please attach the downloaded CSV and/or PDF if requested.`;
+  location.href=`mailto:${PAYROLL_EMAIL}?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(body)}`;
+}
+function dl(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+function slug(s){ return (s||"worker").replace(/[^a-z0-9]+/gi,"_"); }
+function stamp(){ return new Date().toISOString().slice(0,10); }
+
+/* ---- QR ---- */
+let qr=null;
+function makeQR(){
+  const url=document.getElementById('qrUrl').value.trim();
+  const box=document.getElementById('qrbox');
+  const show=document.getElementById('qrShow');
+  box.innerHTML="";
+  if(!url){ show.textContent="— enter a URL —"; return; }
+  show.textContent=url;
+  qr=new QRCode(box,{text:url,width:240,height:240,colorDark:"#16130f",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+  try{ localStorage.setItem("timebandit_url",url); }catch(e){}
+}
+
+/* ---- boot ---- */
+(function boot(){
+  if(!S.ack){ show('s-disc'); }
+  else if(!S.name){ fillSetup(); show('s-setup'); }
+  else if(S.inAt && S.outAt){ buildReport(); show('s-report'); }
+  else { renderShift(); show('s-shift'); }
+  const savedUrl=localStorage.getItem("timebandit_url");
+  if(savedUrl){ document.getElementById('qrUrl').value=savedUrl; }
+})();
+</script>
+</body>
+</html>
