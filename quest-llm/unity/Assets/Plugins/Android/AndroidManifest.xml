@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Quest 3 manifest.
+
+  Drop this at Assets/Plugins/Android/AndroidManifest.xml and Unity will use it
+  instead of the generated one. If you are using the Meta XR SDK, its build
+  tooling may rewrite parts of this file — check the merged result in
+  Temp/gradleOut/launcher/src/main/AndroidManifest.xml after a build rather
+  than assuming what you wrote here survived.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="com.dclabs.questllm"
+          android:installLocation="auto">
+
+    <!-- On-device dictation. Without this, Microphone.devices is empty and
+         VoiceInput fails with "no microphone device". The runtime prompt is
+         raised by VoiceInput via Permission.RequestUserPermission. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- The GGUF lives in the app's own external files dir
+         (Application.persistentDataPath), which is scoped storage and needs no
+         READ_EXTERNAL_STORAGE on API 29+. Do not add MANAGE_EXTERNAL_STORAGE
+         to "make adb push easier" — it will fail store review. -->
+
+    <uses-feature android:name="android.hardware.vr.headtracking"
+                  android:version="1"
+                  android:required="true" />
+
+    <!-- Quest 3 only. The native .so is compiled with -march=armv8.2-a+i8mm,
+         which will SIGILL on older Quest hardware, so do not widen this list
+         to quest2 without rebuilding the native layer for a lower baseline. -->
+    <uses-feature android:name="oculus.software.handtracking" android:required="false" />
+    <uses-permission android:name="com.oculus.permission.HAND_TRACKING" />
+
+    <application android:label="@string/app_name"
+                 android:allowBackup="false"
+                 android:hasCode="true">
+
+        <meta-data android:name="com.oculus.supportedDevices"
+                   android:value="quest3|quest3s" />
+
+        <meta-data android:name="com.oculus.ossplash" android:value="true" />
+
+        <activity android:name="com.unity3d.player.UnityPlayerActivity"
+                  android:theme="@style/UnityThemeSelector"
+                  android:launchMode="singleTask"
+                  android:screenOrientation="landscape"
+                  android:configChanges="locale|fontScale|keyboard|keyboardHidden|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode density"
+                  android:excludeFromRecents="false"
+                  android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <!-- Makes it launch as an immersive app rather than a 2D panel. -->
+                <category android:name="com.oculus.intent.category.VR" />
+            </intent-filter>
+
+            <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
+        </activity>
+    </application>
+</manifest>

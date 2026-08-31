@@ -1,0 +1,24 @@
+# Native build output
+native/build-android-arm64/
+native/build/
+native/tests/test_utf8
+
+# Built shared libraries — rebuild them with native/build_android.sh.
+# A ~40 MB .so per commit is not what git is for.
+unity/Assets/Plugins/Android/libs/
+
+# Models are pushed with adb, never committed. See docs/DEPLOY.md.
+*.gguf
+*.bin
+
+# Unity
+unity/Library/
+unity/Temp/
+unity/Obj/
+unity/Build/
+unity/Builds/
+unity/Logs/
+unity/UserSettings/
+unity/MemoryCaptures/
+unity/*.csproj
+unity/*.sln
