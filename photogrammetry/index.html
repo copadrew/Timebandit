@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#14171a">
+<title>DJI GCP Tagger</title>
+<script src="https://cdn.jsdelivr.net/npm/proj4@2.22.0/dist/proj4.js"></script>
+<script src="geo.js"></script>
+<style>
+  :root{
+    --bg:#14171a; --panel:#1d2126; --panel2:#262b31; --line:#353c44;
+    --ink:#eef1f4; --mute:#9aa4ae; --accent:#ff7a1a; --accent-d:#d45f08;
+    --ok:#3ecf6e; --warn:#ffb020; --bad:#ff5a4e; --pred:#39b8ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:14px 16px 8px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  header h1{margin:0;font-size:20px;letter-spacing:.3px}
+  header span{color:var(--mute);font-size:13px}
+  nav{display:flex;gap:4px;padding:0 12px;border-bottom:1px solid var(--line);overflow-x:auto;position:sticky;top:0;background:var(--bg);z-index:5}
+  nav button{background:none;border:0;color:var(--mute);padding:10px 12px;font:inherit;font-weight:600;border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
+  nav button.on{color:var(--ink);border-bottom-color:var(--accent)}
+  main{max-width:1100px;margin:0 auto;padding:16px}
+  section{display:none} section.on{display:block}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+  .card h2{margin:0 0 10px;font-size:16px}
+  label{display:block;font-size:13px;color:var(--mute);margin:8px 0 4px}
+  input,select,textarea{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:9px 10px;font:inherit}
+  textarea{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;min-height:110px}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  .row{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .btn{display:inline-block;background:var(--accent);color:#111;border:0;border-radius:7px;padding:9px 14px;font:inherit;font-weight:700;cursor:pointer;margin:6px 6px 0 0}
+  .btn:hover{background:var(--accent-d)}
+  .btn.sec{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+  .btn.sec:hover{border-color:var(--mute)}
+  .btn.danger{background:none;color:var(--bad);border:1px solid var(--bad);padding:4px 8px;margin:0}
+  .muted{color:var(--mute);font-size:13px}
+  .note{border-left:3px solid var(--warn);background:rgba(255,176,32,.08);padding:8px 10px;border-radius:4px;font-size:13px;margin:8px 0}
+  .note.err{border-color:var(--bad);background:rgba(255,90,78,.08)}
+  .note.ok{border-color:var(--ok);background:rgba(62,207,110,.08)}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+  th{color:var(--mute);font-weight:600}
+  td input{padding:5px 6px;min-width:90px}
+  .num{font-variant-numeric:tabular-nums}
+  .pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:700}
+  .pill.ok{background:rgba(62,207,110,.18);color:var(--ok)}
+  .pill.warn{background:rgba(255,176,32,.18);color:var(--warn)}
+  .pill.bad{background:rgba(255,90,78,.18);color:var(--bad)}
+  .gcplist{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+  .gcplist button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+  .gcplist button.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .thumbs{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+  .thumb{background:var(--panel2);border:1px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;position:relative}
+  .thumb.marked{border-color:var(--ok)}
+  .thumb canvas{display:block;width:100%;height:120px;background:#000}
+  .thumb div{padding:6px 8px;font-size:12px}
+  .thumb .badge{position:absolute;top:6px;right:6px}
+  /* viewer */
+  #viewer{position:fixed;inset:0;background:#000;z-index:50;display:none;flex-direction:column}
+  #viewer.on{display:flex}
+  #vbar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px;background:rgba(20,23,26,.95);border-bottom:1px solid var(--line)}
+  #vbar .btn{margin:0;padding:7px 11px}
+  #vtitle{flex:1;min-width:140px;font-size:13px}
+  #vcanvas{flex:1;width:100%;touch-action:none;cursor:crosshair;display:block}
+  #vfoot{padding:6px 10px;font-size:12px;color:var(--mute);background:rgba(20,23,26,.95)}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:8px;display:none;z-index:99;max-width:90vw}
+  code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:12.5px}
+  ol li,ul li{margin:4px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>DJI GCP Tagger</h1>
+  <span>Enter your ground control points (Northing / Easting / Elevation), tag them in your DJI photos, export for WebODM / ODM.</span>
+</header>
+<nav id="tabs">
+  <button data-tab="setup" class="on">1 · Setup</button>
+  <button data-tab="gcps">2 · GCPs</button>
+  <button data-tab="photos">3 · Photos</button>
+  <button data-tab="tag">4 · Tag</button>
+  <button data-tab="export">5 · Export</button>
+</nav>
+<main>
+
+<!-- ============================ SETUP -->
+<section id="setup" class="on">
+  <div class="card">
+    <h2>Coordinate system of your GCPs</h2>
+    <p class="muted">This must be the same system your Northing / Easting were surveyed in.</p>
+    <div class="row">
+      <div><label>System</label>
+        <select id="crsMode">
+          <option value="utm">UTM</option>
+          <option value="custom">Other (state plane, local grid… proj4 string)</option>
+        </select></div>
+    </div>
+    <div id="utmBox" class="row">
+      <div><label>UTM zone (1–60)</label><input id="utmZone" type="number" min="1" max="60" value="17"></div>
+      <div><label>Hemisphere</label><select id="utmSouth"><option value="0">North</option><option value="1">South</option></select></div>
+      <div><label>Datum</label><select id="datum"><option>WGS84</option><option>NAD83</option></select></div>
+      <div><label>&nbsp;</label><button class="btn sec" id="autoZone" type="button">Detect zone from photos</button></div>
+    </div>
+    <div id="customBox" style="display:none">
+      <label>proj4 definition (copy "PROJ.4" from epsg.io for your EPSG code)</label>
+      <textarea id="customProj4" style="min-height:70px" placeholder="+proj=lcc +lat_0=... +units=us-ft +no_defs"></textarea>
+      <div class="row">
+        <div><label>Units of Northing / Easting / Elevation</label>
+          <select id="units"><option value="m">Meters</option><option value="usft">US survey feet</option><option value="ft">International feet</option></select></div>
+      </div>
+    </div>
+    <div id="crsMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Drone altitude</h2>
+    <p class="muted">Only used to <b>predict</b> where each GCP appears in each photo, so you can find it fast. It does not change the GCP coordinates you export.</p>
+    <div class="row">
+      <div><label>Camera height source</label>
+        <select id="altMode">
+          <option value="relative">Take-off elevation + DJI relative altitude (recommended)</option>
+          <option value="absolute">DJI absolute altitude (from photo)</option>
+        </select></div>
+      <div id="takeoffBox"><label>Ground elevation at take-off point (<span class="unitLbl">m</span>)</label><input id="takeoffElev" type="number" step="any" value="0"></div>
+      <div><label>Extra altitude correction (<span class="unitLbl">m</span>)</label><input id="altOffset" type="number" step="any" value="0"></div>
+    </div>
+    <div class="note">Tip: stand the drone on the ground near a GCP of known elevation before take-off and use that elevation as the take-off elevation.</div>
+  </div>
+</section>
+
+<!-- ============================ GCPS -->
+<section id="gcps">
+  <div class="card">
+    <h2>Add a ground control point</h2>
+    <form id="gcpForm" autocomplete="off">
+      <div class="row">
+        <div><label>Name / ID</label><input id="gName" required placeholder="GCP1"></div>
+        <div><label>Northing (<span class="unitLbl">m</span>)</label><input id="gN" required inputmode="decimal" placeholder="4504700.381"></div>
+        <div><label>Easting (<span class="unitLbl">m</span>)</label><input id="gE" required inputmode="decimal" placeholder="580735.645"></div>
+        <div><label>Elevation (<span class="unitLbl">m</span>)</label><input id="gZ" required inputmode="decimal" placeholder="12.500"></div>
+      </div>
+      <button class="btn" type="submit">Add GCP</button>
+    </form>
+    <div id="gcpFormMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Your GCPs <span id="gcpCount" class="muted"></span></h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Name</th><th>Northing</th><th>Easting</th><th>Elevation</th><th>Photos tagged</th><th></th></tr></thead>
+      <tbody id="gcpTable"></tbody>
+    </table></div>
+    <div id="gcpWarn"></div>
+  </div>
+
+  <div class="card">
+    <h2>Paste many at once (optional)</h2>
+    <p class="muted">One per line: <code>name, northing, easting, elevation</code> — commas, tabs, semicolons or spaces. A header line is fine.</p>
+    <textarea id="gcpPaste" placeholder="GCP1, 4504700.381, 580735.645, 12.50&#10;GCP2, 4504812.100, 580910.220, 13.02"></textarea>
+    <div class="row"><div><label>Column order</label>
+      <select id="pasteOrder"><option value="NEZ">name, Northing, Easting, Elevation</option><option value="ENZ">name, Easting, Northing, Elevation</option></select></div></div>
+    <button class="btn sec" id="gcpImport" type="button">Add from text</button>
+    <div id="gcpPasteMsg"></div>
+  </div>
+</section>
+
+<!-- ============================ PHOTOS -->
+<section id="photos">
+  <div class="card">
+    <h2>Load your DJI photos</h2>
+    <p class="muted">Photos stay on this device — nothing is uploaded. Pick the whole flight, or just the photos around your GCPs.</p>
+    <label class="btn" style="display:inline-block;color:#111">Choose photos<input id="photoInput" type="file" accept="image/jpeg,.jpg,.jpeg,.JPG" multiple hidden></label>
+    <label class="btn sec" style="display:inline-block">Choose folder<input id="folderInput" type="file" webkitdirectory multiple hidden></label>
+    <div id="photoMsg"></div>
+  </div>
+  <div class="card">
+    <h2>Photos <span id="photoCount" class="muted"></span></h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>File</th><th>Camera</th><th>Lat</th><th>Lon</th><th>Rel. alt (m)</th><th>Cam height</th><th>Yaw</th><th>Pitch</th><th>GCPs visible</th></tr></thead>
+      <tbody id="photoTable"></tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ============================ TAG -->
+<section id="tag">
+  <div class="card">
+    <h2>Pick a GCP</h2>
+    <div class="gcplist" id="tagGcpList"></div>
+    <div id="tagInfo" class="muted"></div>
+  </div>
+  <div class="card">
+    <h2>Photos that should show it</h2>
+    <p class="muted">Tap a photo, zoom in, then tap the exact centre of the target. The blue ring is the predicted spot (usually within a few metres — DJI GPS isn't survey-grade). Tag each GCP in <b>at least 3</b> photos, ideally 5–8 spread across different flight lines.</p>
+    <label style="display:inline-flex;gap:6px;align-items:center;color:var(--ink)"><input type="checkbox" id="showAll" style="width:auto"> Also show photos where it is predicted to be just outside the frame</label>
+    <div class="thumbs" id="thumbs" style="margin-top:10px"></div>
+  </div>
+</section>
+
+<!-- ============================ EXPORT -->
+<section id="export">
+  <div class="card">
+    <h2>Summary</h2>
+    <div id="exportSummary"></div>
+  </div>
+  <div class="card">
+    <h2>gcp_list.txt (OpenDroneMap / WebODM)</h2>
+    <textarea id="odmPreview" readonly style="min-height:180px"></textarea>
+    <button class="btn" id="dlOdm" type="button">Download gcp_list.txt</button>
+    <button class="btn sec" id="dlGcpCsv" type="button">GCP coordinates CSV</button>
+    <button class="btn sec" id="dlMarksCsv" type="button">Image marks CSV</button>
+  </div>
+  <div class="card">
+    <h2>How to process</h2>
+    <ol>
+      <li><b>WebODM:</b> Create a task, select all your photos <i>and</i> <code>gcp_list.txt</code> together, then start processing. WebODM detects the GCP file automatically.</li>
+      <li><b>ODM (command line / Docker):</b> put photos in <code>project/images/</code> and <code>gcp_list.txt</code> in <code>project/</code>, then run<br>
+        <code>docker run -ti --rm -v /path/to/project:/datasets/code opendronemap/odm --project-path /datasets --gcp /datasets/code/gcp_list.txt</code></li>
+      <li><b>Pix4D / Metashape / DJI Terra:</b> import the GCP coordinates CSV (X = Easting, Y = Northing) and use the image-marks CSV as a reference for placing marks.</li>
+    </ol>
+    <div class="note">In <code>gcp_list.txt</code> Easting comes <b>before</b> Northing (x, y, z). The app handles this for you — you only ever type Northing, Easting, Elevation.</div>
+  </div>
+  <div class="card">
+    <h2>Save / load project</h2>
+    <p class="muted">Settings, GCPs and tags are also auto-saved in this browser. Photos are not saved — re-select the same files to continue; tags reconnect by file name.</p>
+    <button class="btn sec" id="dlProject" type="button">Download project file</button>
+    <label class="btn sec" style="display:inline-block">Open project file<input id="projectInput" type="file" accept=".json,application/json" hidden></label>
+    <button class="btn danger" id="resetAll" type="button" style="margin-top:6px">Clear everything</button>
+  </div>
+</section>
+</main>
+
+<div id="viewer">
+  <div id="vbar">
+    <div id="vtitle"></div>
+    <button class="btn sec" id="vPrev" type="button">◀ Prev</button>
+    <button class="btn sec" id="vNext" type="button">Next ▶</button>
+    <button class="btn sec" id="vPred" type="button">Go to prediction</button>
+    <button class="btn sec" id="vFit" type="button">Fit</button>
+    <button class="btn sec" id="vClear" type="button">Remove tag</button>
+    <button class="btn" id="vClose" type="button">Done</button>
+  </div>
+  <canvas id="vcanvas"></canvas>
+  <div id="vfoot">Drag to pan · pinch / scroll to zoom · tap to place the GCP tag</div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+  var G = window.DJIGeo;
+  var STORE_KEY = 'dji-gcp-tagger-v1';
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ------------------------------------------------------------ state
+  var state = {
+    settings: { crsMode: 'utm', utmZone: 17, utmSouth: false, datum: 'WGS84', customProj4: '', units: 'm',
+      altMode: 'relative', takeoffElev: 0, altOffset: 0 },
+    gcps: [],          // {name, n, e, z}
+    marks: {}          // marks[gcpName][imageName] = {x, y}
+  };
+  var photos = [];     // {name, file, meta, cam, error}
+  var projector = null, projError = null;
+  var currentGcp = null;
+
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
+  }
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if (s && s.settings) applyProject(s);
+    } catch (e) { /* ignore */ }
+  }
+  function applyProject(s) {
+    state.settings = Object.assign(state.settings, s.settings || {});
+    state.gcps = Array.isArray(s.gcps) ? s.gcps : [];
+    state.marks = s.marks && typeof s.marks === 'object' ? s.marks : {};
+  }
+
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.style.display = 'none'; }, 2600);
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function note(el, html, kind) { $(el).innerHTML = html ? '<div class="note ' + (kind || '') + '">' + html + '</div>' : ''; }
+  function unitLabel() { return state.settings.crsMode === 'custom' ? ({ m: 'm', usft: 'US ft', ft: 'ft' })[state.settings.units] : 'm'; }
+  function f(x, d) { return x == null || isNaN(x) ? '—' : Number(x).toFixed(d); }
+
+  // ------------------------------------------------------------ tabs
+  $('tabs').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    showTab(b.dataset.tab);
+  });
+  function showTab(name) {
+    document.querySelectorAll('#tabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === name); });
+    document.querySelectorAll('main section').forEach(function (s) { s.classList.toggle('on', s.id === name); });
+    if (name === 'tag') renderTag();
+    if (name === 'export') renderExport();
+    if (name === 'photos') renderPhotos();
+    if (name === 'gcps') renderGcps();
+  }
+
+  // ------------------------------------------------------------ settings
+  var settingIds = ['crsMode', 'utmZone', 'utmSouth', 'datum', 'customProj4', 'units', 'altMode', 'takeoffElev', 'altOffset'];
+  function settingsToForm() {
+    var s = state.settings;
+    $('crsMode').value = s.crsMode; $('utmZone').value = s.utmZone; $('utmSouth').value = s.utmSouth ? '1' : '0';
+    $('datum').value = s.datum; $('customProj4').value = s.customProj4; $('units').value = s.units;
+    $('altMode').value = s.altMode; $('takeoffElev').value = s.takeoffElev; $('altOffset').value = s.altOffset;
+  }
+  function formToSettings() {
+    var s = state.settings;
+    s.crsMode = $('crsMode').value; s.utmZone = parseInt($('utmZone').value, 10); s.utmSouth = $('utmSouth').value === '1';
+    s.datum = $('datum').value; s.customProj4 = $('customProj4').value; s.units = $('units').value;
+    s.altMode = $('altMode').value; s.takeoffElev = parseFloat($('takeoffElev').value) || 0; s.altOffset = parseFloat($('altOffset').value) || 0;
+  }
+  settingIds.forEach(function (id) {
+    $(id).addEventListener('change', function () { formToSettings(); save(); refreshProjection(); });
+  });
+
+  function refreshProjection() {
+    var s = state.settings;
+    $('utmBox').style.display = s.crsMode === 'utm' ? '' : 'none';
+    $('customBox').style.display = s.crsMode === 'custom' ? '' : 'none';
+    $('takeoffBox').style.display = s.altMode === 'relative' ? '' : 'none';
+    document.querySelectorAll('.unitLbl').forEach(function (e) { e.textContent = unitLabel(); });
+    try {
+      projector = G.makeProjector(s, window.proj4);
+      projError = null;
+      var msg = 'Export header: <code>' + esc(projector.header) + '</code>';
+      if (s.crsMode === 'utm' && s.datum === 'NAD83' && !G.utmEpsg(s.utmZone, s.utmSouth, 'NAD83')) msg += '<br>NAD83 UTM only has EPSG codes for northern zones 1–23; a proj4 string will be written instead.';
+      note('crsMsg', msg, 'ok');
+    } catch (e) {
+      projector = null; projError = e.message;
+      note('crsMsg', esc(e.message) + (window.proj4 ? '' : '<br>(The proj4 library could not be downloaded — check your internet connection, or use UTM which works offline.)'), 'err');
+    }
+    photos.forEach(computeCamera);
+    renderGcps(); renderPhotos();
+  }
+
+  $('autoZone').addEventListener('click', function () {
+    var p = photos.filter(function (x) { return x.meta && x.meta.lat != null; });
+    if (!p.length) { toast('Load photos first (step 3).'); return; }
+    var lat = 0, lon = 0; p.forEach(function (x) { lat += x.meta.lat; lon += x.meta.lon; });
+    lat /= p.length; lon /= p.length;
+    state.settings.utmZone = G.utmZoneFromLon(lon); state.settings.utmSouth = lat < 0;
+    settingsToForm(); save(); refreshProjection();
+    toast('UTM zone ' + state.settings.utmZone + (lat < 0 ? 'S' : 'N') + ' — make sure this matches your survey.');
+  });
+
+  // ------------------------------------------------------------ GCPs
+  function addGcp(g) {
+    var i = state.gcps.findIndex(function (x) { return x.name === g.name; });
+    if (i >= 0) state.gcps[i] = g; else state.gcps.push(g);
+  }
+  $('gcpForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var name = $('gName').value.trim().replace(/\s+/g, '_');
+    var n = G.parseNumber($('gN').value), e = G.parseNumber($('gE').value), z = G.parseNumber($('gZ').value);
+    if (!name || [n, e, z].some(isNaN)) { note('gcpFormMsg', 'Enter a name and numeric Northing, Easting and Elevation.', 'err'); return; }
+    var existed = state.gcps.some(function (x) { return x.name === name; });
+    addGcp({ name: name, n: n, e: e, z: z });
+    save();
+    note('gcpFormMsg', (existed ? 'Updated ' : 'Added ') + esc(name) + '.', 'ok');
+    $('gName').value = nextName(name); $('gN').value = ''; $('gE').value = ''; $('gZ').value = '';
+    $('gN').focus();
+    renderGcps();
+  });
+  function nextName(name) {
+    var m = /^(.*?)(\d+)$/.exec(name);
+    return m ? m[1] + (parseInt(m[2], 10) + 1) : '';
+  }
+  $('gcpImport').addEventListener('click', function () {
+    var r = G.parseGcpText($('gcpPaste').value, $('pasteOrder').value);
+    r.gcps.forEach(function (g) { g.name = g.name.replace(/\s+/g, '_'); addGcp(g); });
+    save(); renderGcps();
+    note('gcpPasteMsg', 'Added ' + r.gcps.length + ' GCP(s).' + (r.errors.length ? '<br>' + r.errors.map(esc).join('<br>') : ''), r.errors.length ? 'err' : 'ok');
+  });
+
+  function tagCount(name) { return Object.keys(state.marks[name] || {}).length; }
+
+  function renderGcps() {
+    $('gcpCount').textContent = state.gcps.length ? '(' + state.gcps.length + ')' : '';
+    var u = unitLabel();
+    $('gcpTable').innerHTML = state.gcps.length ? state.gcps.map(function (g, i) {
+      var c = tagCount(g.name);
+      return '<tr data-i="' + i + '"><td>' + esc(g.name) + '</td>' +
+        '<td><input class="num" data-k="n" value="' + g.n + '" inputmode="decimal"></td>' +
+        '<td><input class="num" data-k="e" value="' + g.e + '" inputmode="decimal"></td>' +
+        '<td><input class="num" data-k="z" value="' + g.z + '" inputmode="decimal"></td>' +
+        '<td><span class="pill ' + (c >= 3 ? 'ok' : c ? 'warn' : 'bad') + '">' + c + '</span></td>' +
+        '<td><button class="btn danger" data-del="' + i + '" type="button">Delete</button></td></tr>';
+    }).join('') : '<tr><td colspan="6" class="muted">No GCPs yet. Values are in ' + u + '.</td></tr>';
+
+    // sanity check: are the GCPs anywhere near the photos?
+    var warn = [];
+    if (state.gcps.length && state.gcps.length < 3) warn.push('ODM needs at least 3 GCPs; 5 or more spread around the edges and middle of the site is better.');
+    var cams = photos.filter(function (p) { return p.cam; });
+    if (cams.length && state.gcps.length) {
+      var ce = 0, cn = 0; cams.forEach(function (p) { ce += p.cam.e; cn += p.cam.n; }); ce /= cams.length; cn /= cams.length;
+      var far = state.gcps.filter(function (g) { return Math.hypot(g.e - ce, g.n - cn) > 3000 / G.UNIT_TO_M[projector ? projector.units : 'm']; });
+      if (far.length) {
+        var sw = far.filter(function (g) { return Math.hypot(g.n - ce, g.e - cn) < 3000 / G.UNIT_TO_M[projector.units]; });
+        warn.push('These GCPs are more than 3 km from the photos: <b>' + far.map(function (g) { return esc(g.name); }).join(', ') + '</b>. ' +
+          (sw.length ? 'It looks like Northing and Easting are <b>swapped</b>.' : 'Check the coordinate system / zone in Setup.'));
+      }
+    }
+    note('gcpWarn', warn.join('<br>'), 'err');
+  }
+  $('gcpTable').addEventListener('change', function (ev) {
+    var inp = ev.target.closest('input[data-k]'); if (!inp) return;
+    var g = state.gcps[+inp.closest('tr').dataset.i], v = G.parseNumber(inp.value);
+    if (isNaN(v)) { inp.value = g[inp.dataset.k]; toast('Not a number'); return; }
+    g[inp.dataset.k] = v; save(); renderGcps();
+  });
+  $('gcpTable').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-del]'); if (!b) return;
+    var g = state.gcps[+b.dataset.del];
+    if (!confirm('Delete ' + g.name + (tagCount(g.name) ? ' and its ' + tagCount(g.name) + ' photo tag(s)' : '') + '?')) return;
+    state.gcps.splice(+b.dataset.del, 1); delete state.marks[g.name];
+    if (currentGcp === g.name) currentGcp = null;
+    save(); renderGcps();
+  });
+
+  // ------------------------------------------------------------ photos
+  function computeCamera(p) {
+    p.cam = null; p.camError = null;
+    if (!p.meta || !projector) return;
+    try { p.cam = G.buildCamera(p.meta, projector, state.settings); } catch (e) { p.camError = e.message; }
+  }
+
+  function loadFiles(list) {
+    var files = Array.prototype.filter.call(list, function (fl) { return /\.jpe?g$/i.test(fl.name); });
+    if (!files.length) { note('photoMsg', 'No JPG files selected. (DNG/RAW files are not supported — use the JPGs.)', 'err'); return; }
+    var known = {}; photos.forEach(function (p) { known[p.name] = true; });
+    var dup = 0, done = 0, failed = 0;
+    note('photoMsg', 'Reading ' + files.length + ' photo(s)…');
+    var queue = files.slice();
+    function next() {
+      var fl = queue.shift();
+      if (!fl) {
+        photos.sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { numeric: true }); });
+        note('photoMsg', 'Loaded ' + done + ' photo(s)' + (dup ? ', ' + dup + ' already loaded' : '') + (failed ? ', ' + failed + ' without usable GPS/metadata' : '') + '.', failed ? '' : 'ok');
+        renderPhotos(); renderGcps();
+        return;
+      }
+      if (known[fl.name]) { dup++; next(); return; }
+      known[fl.name] = true;
+      fl.slice(0, 1024 * 1024).arrayBuffer().then(function (buf) {
+        var p = { name: fl.name, file: fl, meta: null };
+        try { p.meta = G.parseJpegMeta(buf); } catch (e) { p.error = e.message; }
+        computeCamera(p);
+        if (!p.cam) failed++; else done++;
+        photos.push(p);
+        if ((done + failed) % 20 === 0) note('photoMsg', 'Reading… ' + (done + failed) + ' / ' + files.length);
+      }).catch(function () { failed++; }).then(next);
+    }
+    next();
+  }
+  $('photoInput').addEventListener('change', function (ev) { loadFiles(ev.target.files); ev.target.value = ''; });
+  $('folderInput').addEventListener('change', function (ev) { loadFiles(ev.target.files); ev.target.value = ''; });
+
+  function visibleIn(p, g, margin) {
+    if (!p.cam) return null;
+    var r = G.projectPoint(p.cam, g);
+    if (!(r.depth > 0)) return null;
+    var mx = p.cam.width * (margin || 0), my = p.cam.height * (margin || 0);
+    r.near = r.x >= -mx && r.y >= -my && r.x < p.cam.width + mx && r.y < p.cam.height + my;
+    return r;
+  }
+
+  function renderPhotos() {
+    $('photoCount').textContent = photos.length ? '(' + photos.length + ')' : '';
+    var u = unitLabel();
+    $('photoTable').innerHTML = photos.length ? photos.slice(0, 500).map(function (p) {
+      var m = p.meta || {}, d = m.dji || {}, c = p.cam;
+      var vis = c ? state.gcps.filter(function (g) { var r = visibleIn(p, g); return r && r.inFrame; }).map(function (g) { return esc(g.name); }).join(', ') : '';
+      return '<tr><td>' + esc(p.name) + '</td><td>' + esc(m.model || '—') + '</td>' +
+        '<td class="num">' + f(m.lat, 7) + '</td><td class="num">' + f(m.lon, 7) + '</td>' +
+        '<td class="num">' + f(d.RelativeAltitude, 1) + '</td>' +
+        '<td class="num">' + (c ? f(c.z, 1) + ' ' + u : '<span class="pill bad">' + esc(p.camError || p.error || 'no data') + '</span>') + '</td>' +
+        '<td class="num">' + f(d.GimbalYawDegree, 1) + '</td><td class="num">' + f(d.GimbalPitchDegree, 1) + '</td>' +
+        '<td>' + (vis || '<span class="muted">—</span>') + '</td></tr>';
+    }).join('') + (photos.length > 500 ? '<tr><td colspan="9" class="muted">…and ' + (photos.length - 500) + ' more</td></tr>' : '')
+      : '<tr><td colspan="9" class="muted">No photos loaded.</td></tr>';
+  }
+
+  // ------------------------------------------------------------ tag
+  function candidates(g) {
+    var showAll = $('showAll').checked, out = [];
+    var marks = state.marks[g.name] || {};
+    photos.forEach(function (p) {
+      var r = visibleIn(p, g, 0.25);
+      var marked = marks[p.name];
+      if (!marked && !(r && (r.inFrame || (showAll && r.near)))) return;
+      var dc = r ? Math.hypot((r.x - p.cam.cx) / p.cam.width, (r.y - p.cam.cy) / p.cam.height) : 9;
+      out.push({ photo: p, pred: r, mark: marked, score: (marked ? -10 : 0) + dc });
+    });
+    out.sort(function (a, b) { return a.score - b.score; });
+    return out;
+  }
+
+  function renderTag() {
+    if (!state.gcps.length) { $('tagGcpList').innerHTML = '<span class="muted">Add GCPs in step 2 first.</span>'; $('thumbs').innerHTML = ''; $('tagInfo').textContent = ''; return; }
+    if (!currentGcp || !state.gcps.some(function (g) { return g.name === currentGcp; })) currentGcp = state.gcps[0].name;
+    $('tagGcpList').innerHTML = state.gcps.map(function (g) {
+      var c = tagCount(g.name);
+      return '<button type="button" data-g="' + esc(g.name) + '" class="' + (g.name === currentGcp ? 'on' : '') + '">' + esc(g.name) +
+        ' <span class="pill ' + (c >= 3 ? 'ok' : c ? 'warn' : 'bad') + '">' + c + '</span></button>';
+    }).join('');
+    var g = gcpByName(currentGcp);
+    if (!photos.length) { $('tagInfo').textContent = 'Load photos in step 3.'; $('thumbs').innerHTML = ''; return; }
+    if (!projector) { $('tagInfo').textContent = 'Fix the coordinate system in step 1: ' + projError; $('thumbs').innerHTML = ''; return; }
+    var list = candidates(g);
+    $('tagInfo').innerHTML = esc(g.name) + ': N ' + g.n + ', E ' + g.e + ', Z ' + g.z + ' — ' + list.length + ' candidate photo(s).' +
+      (list.length ? '' : ' <b>None found.</b> Check the coordinate system, that Northing/Easting are not swapped, or tick “also show” below.');
+    $('thumbs').innerHTML = list.map(function (c, i) {
+      return '<div class="thumb' + (c.mark ? ' marked' : '') + '" data-i="' + i + '"><canvas width="320" height="240"></canvas>' +
+        (c.mark ? '<span class="pill ok badge">tagged</span>' : (c.pred && !c.pred.inFrame ? '<span class="pill warn badge">edge</span>' : '')) +
+        '<div>' + esc(c.photo.name) + '<br><span class="muted">' + (c.pred ? 'pred ' + Math.round(c.pred.x) + ', ' + Math.round(c.pred.y) + ' · GSD ' + (unitLabel() === 'm' ? f(G.gsd(c.photo.cam, c.pred.depth) * 100, 1) + ' cm' : f(G.gsd(c.photo.cam, c.pred.depth), 3) + ' ' + unitLabel()) : '') + '</span></div></div>';
+    }).join('');
+    renderTag.list = list;
+    drawThumbs(list);
+  }
+  $('showAll').addEventListener('change', renderTag);
+  $('tagGcpList').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-g]'); if (!b) return;
+    currentGcp = b.dataset.g; renderTag();
+  });
+  $('thumbs').addEventListener('click', function (ev) {
+    var t = ev.target.closest('.thumb'); if (!t) return;
+    openViewer(renderTag.list, +t.dataset.i);
+  });
+  function gcpByName(n) { return state.gcps.find(function (g) { return g.name === n; }); }
+
+  // Thumbnails: a crop around the predicted / tagged point, decoded lazily one at a time.
+  var thumbToken = 0;
+  function drawThumbs(list) {
+    var token = ++thumbToken, canvases = $('thumbs').querySelectorAll('canvas'), i = 0;
+    function step() {
+      if (token !== thumbToken || i >= list.length || i >= 60) return;
+      var c = list[i], cv = canvases[i]; i++;
+      withImage(c.photo, function (img) {
+        if (token !== thumbToken) return;
+        var ctx = cv.getContext('2d'), pt = c.mark || c.pred;
+        var sw = Math.min(img.naturalWidth, 800), sh = sw * 0.75;
+        var sx = pt ? Math.max(0, Math.min(img.naturalWidth - sw, pt.x - sw / 2)) : (img.naturalWidth - sw) / 2;
+        var sy = pt ? Math.max(0, Math.min(img.naturalHeight - sh, pt.y - sh / 2)) : (img.naturalHeight - sh) / 2;
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+        if (pt) {
+          var k = cv.width / sw, x = (pt.x - sx) * k, y = (pt.y - sy) * k;
+          ctx.lineWidth = 2; ctx.strokeStyle = c.mark ? '#3ecf6e' : '#39b8ff';
+          ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.stroke();
+        }
+        setTimeout(step, 0);
+      }, function () { setTimeout(step, 0); });
+    }
+    step();
+  }
+
+  var imgCache = { name: null, img: null, url: null };
+  function withImage(p, ok, fail) {
+    if (imgCache.name === p.name && imgCache.img) { ok(imgCache.img); return; }
+    var url = URL.createObjectURL(p.file), img = new Image();
+    img.onload = function () {
+      if (imgCache.url) URL.revokeObjectURL(imgCache.url);
+      imgCache = { name: p.name, img: img, url: url };
+      ok(img);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); if (fail) fail(); };
+    img.src = url;
+  }
+
+  // ------------------------------------------------------------ viewer
+  var V = { list: null, idx: 0, img: null, s: 1, tx: 0, ty: 0, pointers: {}, moved: false, pinch: null };
+  var cv = $('vcanvas'), vctx = cv.getContext('2d');
+
+  function openViewer(list, idx) {
+    V.list = list; V.idx = idx;
+    $('viewer').classList.add('on'); document.body.style.overflow = 'hidden';
+    loadViewerPhoto();
+  }
+  function closeViewer() {
+    $('viewer').classList.remove('on'); document.body.style.overflow = '';
+    V.img = null; renderTag();
+  }
+  function cur() { return V.list[V.idx]; }
+  function loadViewerPhoto() {
+    var c = cur(), g = gcpByName(currentGcp);
+    c.mark = (state.marks[g.name] || {})[c.photo.name];
+    $('vtitle').innerHTML = '<b>' + esc(g.name) + '</b> in ' + esc(c.photo.name) + ' <span class="muted">(' + (V.idx + 1) + ' / ' + V.list.length + ')</span>';
+    V.img = null; resizeCanvas(); draw();
+    withImage(c.photo, function (img) {
+      if (cur() !== c) return;
+      V.img = img;
+      var pt = c.mark || c.pred;
+      if (pt && isFinite(pt.x)) zoomTo(pt.x, pt.y, Math.min(1.5, Math.max(fitScale() * 4, 0.6))); else fit();
+    }, function () { toast('Could not open ' + c.photo.name); });
+  }
+  function resizeCanvas() {
+    var dpr = window.devicePixelRatio || 1, r = cv.getBoundingClientRect();
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    vctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function fitScale() { var r = cv.getBoundingClientRect(); return V.img ? Math.min(r.width / V.img.naturalWidth, r.height / V.img.naturalHeight) : 1; }
+  function fit() {
+    var r = cv.getBoundingClientRect(); V.s = fitScale();
+    V.tx = (r.width - V.img.naturalWidth * V.s) / 2; V.ty = (r.height - V.img.naturalHeight * V.s) / 2; draw();
+  }
+  function zoomTo(x, y, s) {
+    var r = cv.getBoundingClientRect(); V.s = s; V.tx = r.width / 2 - x * s; V.ty = r.height / 2 - y * s; draw();
+  }
+  function draw() {
+    var r = cv.getBoundingClientRect();
+    vctx.fillStyle = '#000'; vctx.fillRect(0, 0, r.width, r.height);
+    if (!V.img) { vctx.fillStyle = '#9aa4ae'; vctx.font = '15px system-ui'; vctx.fillText('Loading photo…', 20, 30); return; }
+    vctx.imageSmoothingEnabled = V.s < 2;
+    vctx.drawImage(V.img, V.tx, V.ty, V.img.naturalWidth * V.s, V.img.naturalHeight * V.s);
+    var c = cur();
+    if (c.pred && isFinite(c.pred.x)) {
+      var px = c.pred.x * V.s + V.tx, py = c.pred.y * V.s + V.ty;
+      vctx.setLineDash([6, 5]); vctx.lineWidth = 2; vctx.strokeStyle = '#39b8ff';
+      vctx.beginPath(); vctx.arc(px, py, 36, 0, Math.PI * 2); vctx.stroke(); vctx.setLineDash([]);
+      vctx.fillStyle = '#39b8ff'; vctx.font = '12px system-ui'; vctx.fillText('predicted', px - 26, py + 52);
+    }
+    if (c.mark) {
+      var mx = c.mark.x * V.s + V.tx, my = c.mark.y * V.s + V.ty;
+      vctx.lineWidth = 3; vctx.strokeStyle = '#000';
+      cross(mx, my); vctx.lineWidth = 1.5; vctx.strokeStyle = '#3ecf6e'; cross(mx, my);
+      vctx.fillStyle = '#3ecf6e'; vctx.font = 'bold 13px system-ui'; vctx.fillText(currentGcp, mx + 12, my - 12);
+    }
+    $('vfoot').textContent = (c.mark ? 'Tagged at ' + c.mark.x.toFixed(1) + ', ' + c.mark.y.toFixed(1) + ' px · ' : '') +
+      'zoom ' + Math.round(V.s * 100) + '% · drag to pan · pinch / scroll to zoom · tap to place the tag';
+  }
+  function cross(x, y) {
+    vctx.beginPath(); vctx.moveTo(x - 18, y); vctx.lineTo(x - 4, y); vctx.moveTo(x + 4, y); vctx.lineTo(x + 18, y);
+    vctx.moveTo(x, y - 18); vctx.lineTo(x, y - 4); vctx.moveTo(x, y + 4); vctx.lineTo(x, y + 18); vctx.stroke();
+    vctx.beginPath(); vctx.arc(x, y, 1.5, 0, Math.PI * 2); vctx.stroke();
+  }
+  function zoomAt(sx, sy, factor) {
+    var ns = Math.max(fitScale() * 0.5, Math.min(12, V.s * factor));
+    V.tx = sx - (sx - V.tx) * ns / V.s; V.ty = sy - (sy - V.ty) * ns / V.s; V.s = ns; draw();
+  }
+  function local(ev) { var r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
+
+  cv.addEventListener('wheel', function (ev) {
+    ev.preventDefault(); if (!V.img) return;
+    var p = local(ev); zoomAt(p.x, p.y, Math.exp(-ev.deltaY * 0.0015));
+  }, { passive: false });
+  cv.addEventListener('pointerdown', function (ev) {
+    cv.setPointerCapture(ev.pointerId);
+    V.pointers[ev.pointerId] = local(ev);
+    var ids = Object.keys(V.pointers);
+    if (ids.length === 1) { V.moved = false; V.start = local(ev); }
+    if (ids.length === 2) {
+      var a = V.pointers[ids[0]], b = V.pointers[ids[1]];
+      V.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) }; V.moved = true;
+    }
+  });
+  cv.addEventListener('pointermove', function (ev) {
+    if (!V.pointers[ev.pointerId] || !V.img) return;
+    var p = local(ev), prev = V.pointers[ev.pointerId];
+    V.pointers[ev.pointerId] = p;
+    var ids = Object.keys(V.pointers);
+    if (ids.length === 2 && V.pinch) {
+      var a = V.pointers[ids[0]], b = V.pointers[ids[1]], d = Math.hypot(a.x - b.x, a.y - b.y);
+      var mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      V.tx += (p.x - prev.x) / 2; V.ty += (p.y - prev.y) / 2;
+      zoomAt(mid.x, mid.y, d / V.pinch.d); V.pinch.d = d;
+    } else if (ids.length === 1) {
+      if (Math.hypot(p.x - V.start.x, p.y - V.start.y) > 6) V.moved = true;
+      if (V.moved) { V.tx += p.x - prev.x; V.ty += p.y - prev.y; draw(); }
+    }
+  });
+  function pointerEnd(ev) {
+    if (!V.pointers[ev.pointerId]) return;
+    var p = local(ev);
+    delete V.pointers[ev.pointerId];
+    var left = Object.keys(V.pointers).length;
+    if (left < 2) V.pinch = null;
+    if (ev.type === 'pointerup' && left === 0 && !V.moved && V.img) placeMark(p);
+  }
+  cv.addEventListener('pointerup', pointerEnd);
+  cv.addEventListener('pointercancel', pointerEnd);
+
+  function placeMark(p) {
+    var x = (p.x - V.tx) / V.s, y = (p.y - V.ty) / V.s;
+    if (x < 0 || y < 0 || x >= V.img.naturalWidth || y >= V.img.naturalHeight) return;
+    var c = cur(), g = currentGcp;
+    (state.marks[g] = state.marks[g] || {})[c.photo.name] = { x: x, y: y };
+    c.mark = state.marks[g][c.photo.name];
+    save(); draw();
+    if (V.s < 0.5) toast('Tagged — zoom in and tap again to refine.');
+  }
+
+  $('vPrev').addEventListener('click', function () { if (V.idx > 0) { V.idx--; loadViewerPhoto(); } });
+  $('vNext').addEventListener('click', function () { if (V.idx < V.list.length - 1) { V.idx++; loadViewerPhoto(); } else toast('Last photo for this GCP'); });
+  $('vFit').addEventListener('click', function () { if (V.img) fit(); });
+  $('vPred').addEventListener('click', function () { var c = cur(); if (V.img && c.pred && isFinite(c.pred.x)) zoomTo(c.pred.x, c.pred.y, Math.max(V.s, 1)); });
+  $('vClear').addEventListener('click', function () {
+    var c = cur(), m = state.marks[currentGcp];
+    if (m) delete m[c.photo.name];
+    c.mark = null; save(); draw();
+  });
+  $('vClose').addEventListener('click', closeViewer);
+  document.addEventListener('keydown', function (ev) {
+    if (!$('viewer').classList.contains('on')) return;
+    if (ev.key === 'Escape') closeViewer();
+    if (ev.key === 'ArrowRight') $('vNext').click();
+    if (ev.key === 'ArrowLeft') $('vPrev').click();
+  });
+  window.addEventListener('resize', function () { if ($('viewer').classList.contains('on')) { resizeCanvas(); draw(); } });
+
+  // ------------------------------------------------------------ export
+  function allMarks() {
+    var out = [];
+    state.gcps.forEach(function (g) {
+      var m = state.marks[g.name] || {};
+      Object.keys(m).sort().forEach(function (img) { out.push({ gcp: g.name, image: img, x: m[img].x, y: m[img].y }); });
+    });
+    return out;
+  }
+  function renderExport() {
+    var marks = allMarks(), issues = [];
+    if (!projector) issues.push('Coordinate system is not valid: ' + esc(projError));
+    if (state.gcps.length < 3) issues.push('You have ' + state.gcps.length + ' GCP(s); ODM needs at least 3.');
+    var few = state.gcps.filter(function (g) { return tagCount(g.name) < 3; });
+    if (few.length) issues.push('Tag these in at least 3 photos each: ' + few.map(function (g) { return esc(g.name) + ' (' + tagCount(g.name) + ')'; }).join(', '));
+    if (marks.some(function (m) { return /\s/.test(m.image); })) issues.push('Some photo file names contain spaces — rename them (and re-tag) before processing, ODM splits on spaces.');
+    $('exportSummary').innerHTML = '<p>' + state.gcps.length + ' GCPs · ' + marks.length + ' photo tags</p>' +
+      (issues.length ? '<div class="note err">' + issues.join('<br>') + '</div>' : '<div class="note ok">Ready to export.</div>');
+    $('odmPreview').value = projector ? G.buildOdmGcpList(projector.header, state.gcps, marks) : '';
+  }
+  function download(name, text, type) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: type || 'text/plain' }));
+    a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  $('dlOdm').addEventListener('click', function () {
+    if (!projector) { toast('Fix the coordinate system first'); return; }
+    download('gcp_list.txt', G.buildOdmGcpList(projector.header, state.gcps, allMarks()));
+  });
+  $('dlGcpCsv').addEventListener('click', function () { download('gcps.csv', G.buildGcpCsv(state.gcps), 'text/csv'); });
+  $('dlMarksCsv').addEventListener('click', function () { download('gcp_image_marks.csv', G.buildMarksCsv(allMarks()), 'text/csv'); });
+  $('dlProject').addEventListener('click', function () { download('gcp_project.json', JSON.stringify(state, null, 2), 'application/json'); });
+  $('projectInput').addEventListener('change', function (ev) {
+    var fl = ev.target.files[0]; ev.target.value = ''; if (!fl) return;
+    fl.text().then(function (t) {
+      var s = JSON.parse(t);
+      if (!s || !s.settings || !Array.isArray(s.gcps)) throw new Error('bad file');
+      applyProject(s); save(); settingsToForm(); refreshProjection(); renderExport(); toast('Project loaded');
+    }).catch(function () { toast('That is not a GCP project file'); });
+  });
+  $('resetAll').addEventListener('click', function () {
+    if (!confirm('Delete all GCPs, tags and settings from this browser?')) return;
+    try { localStorage.removeItem(STORE_KEY); } catch (e) { /* ignore */ }
+    location.reload();
+  });
+
+  // ------------------------------------------------------------ init
+  load(); settingsToForm(); refreshProjection();
+  if (state.gcps.length) $('gName').value = nextName(state.gcps[state.gcps.length - 1].name);
+  else $('gName').value = 'GCP1';
+})();
+</script>
+</body>
+</html>
