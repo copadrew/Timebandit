@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#16130f">
+<title>Rule 310 Dust Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="log.js"></script>
+<style>
+  :root{
+    --bg:#16130f; --panel:#1f1b16; --panel2:#27221b; --line:#3a3229;
+    --orange:#ff5a00; --orange-d:#cc4600; --amber:#ffb000;
+    --ink:#f4ede2; --mute:#a99b87; --green:#34c759; --red:#ff453a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Archivo',sans-serif;}
+  body{min-height:100vh;background-image:repeating-linear-gradient(45deg, rgba(255,90,0,.025) 0 14px, transparent 14px 28px),radial-gradient(circle at 50% -10%, rgba(255,90,0,.10), transparent 55%);}
+  .wrap{max-width:640px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+  header{padding:18px 16px 14px;border-bottom:2px solid var(--line);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:linear-gradient(180deg,var(--bg),rgba(22,19,15,.92));backdrop-filter:blur(6px);z-index:20;}
+  .badge{width:42px;height:42px;flex:none;border-radius:9px;background:var(--orange);display:grid;place-items:center;font-family:'Oswald';font-weight:700;font-size:17px;color:#1a1209;box-shadow:0 0 0 2px var(--orange-d), 0 6px 14px rgba(255,90,0,.35);}
+  .wordmark{font-family:'Oswald';font-weight:700;letter-spacing:.5px;line-height:1;cursor:pointer;}
+  .wordmark .t{font-size:23px;text-transform:uppercase;}
+  .wordmark .s{font-size:11px;letter-spacing:3px;color:var(--mute);text-transform:uppercase;font-family:'Archivo';font-weight:600;}
+  main{flex:1;padding:22px 16px 40px;}
+  .screen{display:none;}
+  .screen.on{display:block;animation:rise .3s ease both;}
+  @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+  h1{font-family:'Oswald';font-weight:600;font-size:26px;margin:0 0 6px;text-transform:uppercase;letter-spacing:.5px;}
+  h2{font-family:'Oswald';font-weight:500;font-size:15px;letter-spacing:2px;color:var(--amber);text-transform:uppercase;margin:26px 0 12px;}
+  p.lead{color:var(--mute);font-size:15px;line-height:1.55;margin:0 0 18px;}
+  label{display:block;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--mute);margin:0 0 6px;}
+  input[type=text],input[type=date],input[type=time],input[type=number],textarea,select{
+    width:100%;padding:13px 14px;font-size:17px;font-family:'Archivo';font-weight:600;background:var(--panel);
+    border:2px solid var(--line);border-radius:11px;color:var(--ink);margin-bottom:14px;color-scheme:dark;
+  }
+  textarea{min-height:70px;resize:vertical;font-weight:500;}
+  input:focus,textarea:focus{outline:none;border-color:var(--orange);}
+  input:disabled,textarea:disabled{opacity:.6;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 10px;}
+  .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;border:none;border-radius:13px;font-family:'Oswald';font-weight:600;font-size:20px;letter-spacing:.6px;text-transform:uppercase;padding:18px;cursor:pointer;color:#1a1209;background:var(--orange);box-shadow:0 6px 0 var(--orange-d);transition:transform .07s, box-shadow .07s;margin-bottom:14px;}
+  .btn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--orange-d);}
+  .btn.ghost{background:var(--panel2);color:var(--ink);box-shadow:0 6px 0 #1a1611;}
+  .btn.ghost:active{box-shadow:0 2px 0 #1a1611;}
+  .btn.green{background:var(--green);box-shadow:0 6px 0 #208a3d;color:#06210f;}
+  .btn.sm{font-size:15px;padding:13px;}
+  .btn:disabled{opacity:.4;box-shadow:none;transform:none;cursor:not-allowed;}
+  .row{display:flex;gap:10px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin:0 0 14px;}
+  .card .hd{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;}
+  .card .hd b{font-family:'Oswald';font-size:17px;letter-spacing:.5px;}
+  .x{background:none;border:1px solid var(--line);color:var(--mute);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;font-family:'Archivo';font-weight:700;}
+  .item{border-top:1px solid var(--line);padding:10px 0;}
+  .item:first-of-type{border-top:none;}
+  .item .lbl{font-size:14px;line-height:1.4;margin-bottom:8px;}
+  .seg{display:flex;gap:6px;}
+  .seg button{flex:1;padding:11px 0;border-radius:9px;border:2px solid var(--line);background:var(--panel2);color:var(--mute);font-family:'Oswald';font-size:17px;font-weight:600;cursor:pointer;}
+  .seg button.on.Y{background:var(--green);border-color:var(--green);color:#06210f;}
+  .seg button.on.N{background:var(--red);border-color:var(--red);color:#2a0805;}
+  .seg button.on.NA{background:var(--mute);border-color:var(--mute);color:#1a1209;}
+  .item input{margin:8px 0 0;font-size:15px;padding:10px 12px;}
+  .toggle{display:flex;gap:12px;align-items:center;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:14px;margin:0 0 14px;cursor:pointer;}
+  .toggle input{width:24px;height:24px;flex:none;accent-color:var(--orange);}
+  .toggle span{font-size:15px;line-height:1.4;}
+  .issues{border-radius:12px;padding:14px 16px;margin:0 0 16px;font-size:14px;line-height:1.5;}
+  .issues.err{background:rgba(255,69,58,.12);border:1px solid var(--red);}
+  .issues.warn{background:rgba(255,176,0,.10);border:1px solid var(--amber);}
+  .issues.ok{background:rgba(52,199,89,.12);border:1px solid var(--green);}
+  .issues ul{margin:6px 0 0;padding-left:18px;}
+  .fine{background:var(--panel);border-left:3px solid var(--amber);border-radius:0 10px 10px 0;padding:12px 14px;font-size:13px;line-height:1.55;color:var(--mute);margin:0 0 18px;}
+  .list .li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .list .li:last-child{border-bottom:none;}
+  .list{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:0 0 18px;}
+  .pill{font-family:'Oswald';font-size:12px;letter-spacing:1.5px;text-transform:uppercase;border-radius:6px;padding:3px 8px;white-space:nowrap;}
+  .pill.ok{background:var(--green);color:#06210f;}
+  .pill.draft{background:var(--amber);color:#1a1209;}
+  .pill.none{background:var(--panel2);color:var(--mute);border:1px solid var(--line);}
+  .tag{display:inline-block;font-family:'Oswald';font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange-d);border-radius:6px;padding:3px 9px;margin-bottom:12px;}
+  .navlink{background:none;border:none;color:var(--amber);font-family:'Archivo';font-weight:700;font-size:14px;cursor:pointer;padding:6px;text-decoration:underline;}
+  .sigpad{background:#fff;border-radius:12px;touch-action:none;width:100%;height:160px;display:block;margin-bottom:8px;}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px;}
+  .kv .k{color:var(--mute);}
+  .banner{background:rgba(255,176,0,.12);border:1px solid var(--amber);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.45;margin:0 0 16px;}
+  select{appearance:none;}
+  footer{padding:16px;border-top:1px solid var(--line);text-align:center;color:var(--mute);font-size:11px;letter-spacing:.5px;}
+  @media (max-width:420px){ .grid3{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="badge">310</div>
+    <div class="wordmark" onclick="goHome()"><div class="t">Dust Log</div><div class="s">Rule 310 Daily Record</div></div>
+  </header>
+  <main>
+
+    <!-- HOME -->
+    <section class="screen" id="s-home">
+      <div id="homeBody"></div>
+    </section>
+
+    <!-- SITE SETUP -->
+    <section class="screen" id="s-site">
+      <span class="tag">Site Setup</span>
+      <h1>Permit & Site</h1>
+      <p class="lead">Enter this once per job. Copy it from the Dust Control Permit and the approved Dust Control Plan (DCP).</p>
+      <label>Dust Control Permit #</label><input type="text" id="sPermit" placeholder="From the permit">
+      <div class="grid2">
+        <div><label>Permit Expires</label><input type="date" id="sExp"></div>
+        <div><label>Disturbed Acres</label><input type="number" id="sAcres" inputmode="decimal" step="0.01"></div>
+      </div>
+      <label>Project Name</label><input type="text" id="sProject" placeholder="e.g. Pointe Grand Mesa">
+      <label>Site Address / Location</label><input type="text" id="sAddr">
+      <label>Permittee (Company)</label><input type="text" id="sPermittee">
+      <div class="grid2">
+        <div><label>Dust Control Coordinator</label><input type="text" id="sDcc"></div>
+        <div><label>DCC Training / Cert #</label><input type="text" id="sDccCert"></div>
+      </div>
+      <label>Site Contact Phone</label><input type="text" id="sPhone" inputmode="tel">
+      <h2>Control Measures Checklist</h2>
+      <p class="lead">These are the items checked on every inspection. Edit them to match <b>your approved DCP</b>, one per line.</p>
+      <textarea id="sItems" style="min-height:260px;font-size:15px"></textarea>
+      <button class="btn ghost sm" onclick="resetItems()">Reset to default list</button>
+      <button class="btn" onclick="saveSite()">Save Site</button>
+      <div style="text-align:center"><button class="navlink" onclick="goHome()">← Cancel</button></div>
+    </section>
+
+    <!-- DAILY LOG EDITOR -->
+    <section class="screen" id="s-log">
+      <div id="logBody"></div>
+    </section>
+
+    <!-- SIGNED LOG VIEW -->
+    <section class="screen" id="s-view">
+      <div id="viewBody"></div>
+    </section>
+
+  </main>
+  <footer>RULE 310 DUST LOG · DCLabs LLC · data stays on this device: back it up</footer>
+</div>
+
+<script>
+const L = window.DustLog;
+const KEY = "dust310_v1";
+let ST = loadStore();
+let cur = null;      // log being edited
+let sigDirty = false;
+
+/* ---------- storage ---------- */
+function loadStore(){
+  try{ const d = JSON.parse(localStorage.getItem(KEY)); if(d && d.sites) return d; }catch(e){}
+  return L.emptyStore();
+}
+function persist(){
+  try{ localStorage.setItem(KEY, JSON.stringify(ST)); }
+  catch(e){ alert("Could not save on this device (storage full or blocked). Export a backup now."); }
+}
+function site(){ return ST.sites.find(s=>s.id===ST.currentSiteId) || null; }
+function siteById(id){ return ST.sites.find(s=>s.id===id) || null; }
+function logsFor(s){ return ST.logs.filter(l=>l.siteId===s.id).sort((a,b)=>a.date<b.date?1:-1); }
+
+/* ---------- helpers ---------- */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function today(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function nowHM(){ const d=new Date(); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+function fmtDate(s){ if(!s) return "—"; const [y,m,d]=s.split("-"); return new Date(+y,+m-1,+d).toLocaleDateString([], {weekday:"short",month:"short",day:"numeric",year:"numeric"}); }
+function fmtStamp(iso){ return iso? new Date(iso).toLocaleString() : "—"; }
+function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.remove("on")); document.getElementById(id).classList.add("on"); window.scrollTo(0,0); }
+function dl(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+function slug(s){ return (s||"site").replace(/[^a-z0-9]+/gi,"_"); }
+
+/* ---------- home ---------- */
+function goHome(){ cur=null; renderHome(); show("s-home"); }
+function renderHome(){
+  const s = site();
+  let h = "";
+  if(!ST.sites.length){
+    h += `<span class="tag">Get Started</span><h1>Rule 310 Dust Log</h1>
+      <p class="lead">Daily dust-control records for Maricopa County Rule 310 sites. Set up the permit once, then log each workday: timed inspections, water, trackout and fixes. Sign it, export the PDF.</p>
+      <button class="btn" onclick="editSite(true)">Set Up First Site</button>
+      <div style="text-align:center"><button class="navlink" onclick="pickRestore()">Restore from a backup file</button></div>`;
+    document.getElementById("homeBody").innerHTML = h; return;
+  }
+  const days = ST.lastBackup? Math.floor((Date.now()-new Date(ST.lastBackup))/864e5) : null;
+  if(ST.logs.length && (days===null || days>=7)){
+    h += `<div class="banner"><b>Back up your logs.</b> They only live on this phone. Rule 310 records must be kept for years. ${days===null?"No backup yet.":"Last backup "+days+" days ago."} <button class="navlink" onclick="backup()">Back up now</button></div>`;
+  }
+  h += `<label>Site</label><select id="sitePick" onchange="ST.currentSiteId=this.value;persist();renderHome()">`+
+       ST.sites.map(x=>`<option value="${x.id}" ${x.id===ST.currentSiteId?"selected":""}>${esc(x.projectName||"Unnamed")} · ${esc(x.permitNo)}</option>`).join("")+
+       `</select>`;
+  if(s){
+    const t = today();
+    const todays = ST.logs.find(l=>l.siteId===s.id && l.date===t);
+    const expSoon = s.permitExpires && (new Date(s.permitExpires) - Date.now()) < 30*864e5;
+    if(expSoon) h += `<div class="issues ${s.permitExpires<t?"err":"warn"}">Permit ${s.permitExpires<t?"expired":"expires"} ${fmtDate(s.permitExpires)}.</div>`;
+    h += `<h1>${esc(fmtDate(t))}</h1>`;
+    if(!todays) h += `<button class="btn" onclick="startLog('${t}')">Start Today's Log</button>`;
+    else if(todays.signedAt) h += `<div class="issues ok">Today's log is signed.</div><button class="btn ghost" onclick="openLog('${todays.id}')">View Today's Log</button>`;
+    else h += `<button class="btn" onclick="openLog('${todays.id}')">Continue Today's Log</button>`;
+    h += `<div class="row"><button class="btn ghost sm" onclick="startOtherDay()">Log another date</button><button class="btn ghost sm" onclick="editSite(false)">Edit site</button></div>
+    <button class="btn ghost sm" onclick="printBlank()">Print blank paper form</button>`;
+    const ls = logsFor(s);
+    h += `<h2>Logs (${ls.length})</h2>`;
+    if(ls.length){
+      h += `<div class="list">`+ls.map(l=>{
+        const pill = l.signedAt? `<span class="pill ok">Signed</span>` : `<span class="pill draft">Draft</span>`;
+        const sub = l.noWork? "No dust-generating work" : `${(l.checks||[]).length} checks · ${L.totalWater(l).toLocaleString()} gal`;
+        return `<div class="li" onclick="openLog('${l.id}')"><div><b>${esc(fmtDate(l.date))}</b><div style="color:var(--mute);font-size:13px;margin-top:3px">${esc(sub)}</div></div>${pill}</div>`;
+      }).join("")+`</div>`;
+      h += `<div class="row"><button class="btn ghost sm" onclick="printAll()">Print logs (binder)</button><button class="btn ghost sm" onclick="exportCSV()">Export CSV</button></div>`;
+    } else h += `<p class="lead">No logs yet for this site.</p>`;
+  }
+  h += `<h2>Data</h2><div class="row"><button class="btn ghost sm" onclick="backup()">Back up</button><button class="btn ghost sm" onclick="pickRestore()">Restore</button></div>
+        <button class="btn ghost sm" onclick="editSite(true)">+ Add another site</button>
+        <div class="fine">Built around Rule 310's daily recordkeeping requirement: log the control measures you actually carried out under your approved Dust Control Plan. Make the checklist match your DCP. This app does not replace the rule, your permit or your DCP. Keep records for as long as your permit and the rule require. Check the current Rule 310 at maricopa.gov.</div>`;
+  document.getElementById("homeBody").innerHTML = h;
+}
+
+/* ---------- site ---------- */
+let editingSiteNew = false;
+function editSite(isNew){
+  editingSiteNew = isNew;
+  const s = isNew? L.newSite() : site();
+  sPermit.value=s.permitNo; sExp.value=s.permitExpires; sAcres.value=s.acres; sProject.value=s.projectName;
+  sAddr.value=s.address; sPermittee.value=s.permittee; sDcc.value=s.dccName; sDccCert.value=s.dccCert; sPhone.value=s.phone;
+  sItems.value = s.items.map(i=>i.label).join("\n");
+  show("s-site");
+}
+function resetItems(){ sItems.value = L.DEFAULT_ITEMS.map(i=>i.label).join("\n"); }
+function saveSite(){
+  if(!sPermit.value.trim()) return alert("Enter the dust control permit number.");
+  const s = editingSiteNew? L.newSite() : site();
+  const lines = sItems.value.split("\n").map(x=>x.trim()).filter(Boolean);
+  if(!lines.length) return alert("The checklist needs at least one item.");
+  // Keep existing ids for unchanged labels so past logs still line up.
+  const old = s.items, used = new Set();
+  s.items = lines.map(label=>{
+    const match = old.find(o=>o.label===label && !used.has(o.id));
+    if(match){ used.add(match.id); return {id:match.id,label}; }
+    const def = L.DEFAULT_ITEMS.find(d=>d.label===label && !used.has(d.id) && !old.some(o=>o.id===d.id&&o.label!==label));
+    const id = def? def.id : "c_"+L.uid();
+    used.add(id); return {id,label};
+  });
+  Object.assign(s,{permitNo:sPermit.value.trim(),permitExpires:sExp.value,acres:sAcres.value,projectName:sProject.value.trim(),
+    address:sAddr.value.trim(),permittee:sPermittee.value.trim(),dccName:sDcc.value.trim(),dccCert:sDccCert.value.trim(),phone:sPhone.value.trim()});
+  if(editingSiteNew) ST.sites.push(s);
+  ST.currentSiteId = s.id; persist(); goHome();
+}
+
+/* ---------- log editor ---------- */
+function startOtherDay(){
+  const d = prompt("Date for the log (YYYY-MM-DD):", today());
+  if(!d) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return alert("Use the format YYYY-MM-DD.");
+  const ex = ST.logs.find(l=>l.siteId===site().id && l.date===d);
+  if(ex) return openLog(ex.id);
+  startLog(d);
+}
+function startLog(date){
+  const s = site();
+  const prev = logsFor(s)[0];
+  const l = L.newLog(s, date, { preparedBy: prev? prev.preparedBy:"", trainingNo: prev? prev.trainingNo:"" });
+  ST.logs.push(l); persist(); openLog(l.id);
+}
+function openLog(id){
+  cur = ST.logs.find(l=>l.id===id);
+  if(cur.signedAt){ renderView(); show("s-view"); }
+  else { renderLog(); show("s-log"); }
+}
+function upd(path, val){
+  // path like "weather" or "checks.0.status.water"
+  const parts = path.split("."); let o = cur;
+  for(let i=0;i<parts.length-1;i++) o = o[parts[i]];
+  o[parts[parts.length-1]] = val;
+  persist(); renderIssues();
+}
+function fld(label, path, type, attrs){
+  const v = path.split(".").reduce((o,k)=>o==null?o:o[k], cur);
+  return `<div><label>${label}</label><input type="${type||"text"}" value="${esc(v)}" ${attrs||""} oninput="upd('${path}',this.value)"></div>`;
+}
+function renderLog(){
+  const s = siteById(cur.siteId);
+  let h = `<span class="tag">Daily Log · Draft</span><h1>${esc(fmtDate(cur.date))}</h1>
+    <p class="lead">${esc(s.projectName)} · Permit ${esc(s.permitNo)}</p>
+    <div class="grid2">${fld("Prepared by","preparedBy")}${fld("Dust training #","trainingNo")}</div>
+    <label class="toggle"><input type="checkbox" ${cur.noWork?"checked":""} onchange="upd('noWork',this.checked);renderLog()"><span>No dust-generating work today (site idle, rain day, etc.)</span></label>`;
+  if(!cur.noWork){
+    h += `<label>Work done today</label><textarea oninput="upd('activities',this.value)" placeholder="e.g. Sewer trenching on 7th Ave, backfill, export to off-site">${esc(cur.activities)}</textarea>
+      <div class="grid2">${fld("Work start","workStart","time")}${fld("Work end","workEnd","time")}</div>
+      <h2>Weather</h2>
+      <div class="grid3">${fld("Wind mph","windMph","number",'inputmode="decimal"')}${fld("Gusts mph","gustMph","number",'inputmode="decimal"')}${fld("Temp °F","tempF","number",'inputmode="decimal"')}</div>
+      ${fld("Conditions","weather","text",'placeholder="Clear, dry, breezy"')}
+
+      <h2>Visual Inspections (${cur.checks.length})</h2>
+      <p class="lead" style="margin-bottom:12px">Walk the site and mark every item. Add a check each time you inspect (start of day, midday, end of day, and whenever conditions change).</p>
+      ${cur.checks.map((c,ci)=>checkCard(s,c,ci)).join("")}
+      <button class="btn ghost" onclick="addCheck()">+ Add Inspection Now</button>
+
+      <h2>Water Applied (${L.totalWater(cur).toLocaleString()} gal)</h2>
+      ${cur.water.map((w,wi)=>`<div class="card"><div class="hd"><b>Water ${wi+1}</b><button class="x" onclick="rm('water',${wi})">Remove</button></div>
+        <div class="grid2">${fld("Time","water."+wi+".time","time")}${fld("Truck / source","water."+wi+".source","text",'placeholder="WT-2, hydrant"')}</div>
+        <div class="grid2">${fld("Loads","water."+wi+".loads","number",'inputmode="decimal"')}${fld("Gallons","water."+wi+".gallons","number",'inputmode="decimal"')}</div>
+        ${fld("Area","water."+wi+".area","text",'placeholder="Haul road, trench line"')}</div>`).join("")}
+      <button class="btn ghost" onclick="addRow('water',{time:nowHM(),source:'',loads:'',gallons:'',area:''})">+ Add Water</button>
+
+      <h2>Dust Suppressant / Other Stabilization</h2>
+      ${cur.suppressant.map((x,xi)=>`<div class="card"><div class="hd"><b>Application ${xi+1}</b><button class="x" onclick="rm('suppressant',${xi})">Remove</button></div>
+        <div class="grid2">${fld("Time","suppressant."+xi+".time","time")}${fld("Product / method","suppressant."+xi+".product","text",'placeholder="Mag chloride, gravel, tackifier"')}</div>
+        <div class="grid2">${fld("Amount","suppressant."+xi+".amount")}${fld("Area","suppressant."+xi+".area")}</div></div>`).join("")}
+      <button class="btn ghost" onclick="addRow('suppressant',{time:nowHM(),product:'',amount:'',area:''})">+ Add Application</button>
+
+      <h2>Problems & Corrective Actions</h2>
+      ${cur.actions.map((a,ai)=>`<div class="card"><div class="hd"><b>Action ${ai+1}</b><button class="x" onclick="rm('actions',${ai})">Remove</button></div>
+        <label>Checklist item</label><select onchange="upd('actions.${ai}.itemId',this.value)"><option value="">Other</option>${s.items.map(i=>`<option value="${i.id}" ${a.itemId===i.id?"selected":""}>${esc(i.label)}</option>`).join("")}</select>
+        <div class="grid2">${fld("Found at","actions."+ai+".foundAt","time")}${fld("Fixed at","actions."+ai+".fixedAt","time")}</div>
+        ${fld("Problem","actions."+ai+".issue","text",'placeholder="Trackout on 7th Ave, ~30 ft"')}
+        ${fld("What was done","actions."+ai+".action","text",'placeholder="Swept with broom, added gravel to pad"')}</div>`).join("")}
+      <button class="btn ghost" onclick="addRow('actions',{itemId:'',foundAt:nowHM(),fixedAt:'',issue:'',action:''})">+ Add Corrective Action</button>`;
+  }
+  h += `<h2>Notes</h2><textarea oninput="upd('notes',this.value)">${esc(cur.notes)}</textarea>
+    <div id="issues"></div>
+    <h2>Certify & Sign</h2>
+    <div class="fine">I certify this log is a true and accurate record of the dust control measures carried out at this site on this date.</div>
+    <label>Signed by</label><input type="text" id="signName" value="${esc(cur.preparedBy)}">
+    <canvas class="sigpad" id="sigpad"></canvas>
+    <div style="text-align:right;margin-bottom:12px"><button class="x" onclick="clearSig()">Clear signature</button></div>
+    <button class="btn green" id="signBtn" onclick="doSign()">Sign & Lock Log</button>
+    <div class="row"><button class="btn ghost sm" onclick="goHome()">Save draft</button><button class="btn ghost sm" onclick="printLog()">Print draft</button><button class="btn ghost sm" onclick="delDraft()">Delete</button></div>`;
+  document.getElementById("logBody").innerHTML = h;
+  initSig(); renderIssues();
+}
+function checkCard(s,c,ci){
+  return `<div class="card"><div class="hd"><b>Check ${ci+1}</b><button class="x" onclick="rm('checks',${ci})">Remove</button></div>
+    <div class="grid2">${fld("Time","checks."+ci+".time","time")}${fld("Inspector","checks."+ci+".inspector")}</div>
+    <button class="x" style="margin-bottom:6px" onclick="allY(${ci})">Mark all blanks Y</button>
+    ${s.items.map(i=>{
+      const st = c.status[i.id]||"";
+      const cm = (c.comments||{})[i.id]||"";
+      return `<div class="item"><div class="lbl">${esc(i.label)}</div>
+        <div class="seg">${L.STATUSES.map(v=>`<button class="${v} ${st===v?"on":""}" onclick="setStatus(${ci},'${i.id}','${v}')">${v}</button>`).join("")}</div>
+        ${(st==="N"||cm)?`<input type="text" placeholder="${st==="N"?"What's wrong and what was done (required)":"Comment"}" value="${esc(cm)}" oninput="setComment(${ci},'${i.id}',this.value)">`:""}
+      </div>`;
+    }).join("")}</div>`;
+}
+function setStatus(ci,id,v){ const c=cur.checks[ci]; c.status[id] = c.status[id]===v? "" : v; persist(); renderLog(); }
+function setComment(ci,id,v){ const c=cur.checks[ci]; c.comments=c.comments||{}; c.comments[id]=v; persist(); renderIssues(); }
+function allY(ci){ const s=siteById(cur.siteId); const c=cur.checks[ci]; s.items.forEach(i=>{ if(!c.status[i.id]) c.status[i.id]="Y"; }); persist(); renderLog(); }
+function addCheck(){ const s=siteById(cur.siteId); cur.checks.push(L.newCheck(s, nowHM(), cur.preparedBy)); persist(); renderLog(); }
+function addRow(k,row){ cur[k].push(row); persist(); renderLog(); }
+function rm(k,i){ if(!confirm("Remove this entry?")) return; cur[k].splice(i,1); persist(); renderLog(); }
+function delDraft(){ if(!confirm("Delete this draft log? This cannot be undone.")) return; ST.logs = ST.logs.filter(l=>l!==cur); persist(); goHome(); }
+function renderIssues(){
+  const box = document.getElementById("issues"); if(!box) return;
+  const v = L.validate(siteById(cur.siteId), cur);
+  let h = "";
+  if(v.errors.length) h += `<div class="issues err"><b>Fix before signing (${v.errors.length})</b><ul>${v.errors.map(e=>`<li>${esc(e)}</li>`).join("")}</ul></div>`;
+  if(v.warnings.length) h += `<div class="issues warn"><b>Check these</b><ul>${v.warnings.map(e=>`<li>${esc(e)}</li>`).join("")}</ul></div>`;
+  if(!v.errors.length && !v.warnings.length) h = `<div class="issues ok">Log is complete. Ready to sign.</div>`;
+  box.innerHTML = h;
+  const b = document.getElementById("signBtn"); if(b) b.disabled = v.errors.length>0;
+}
+
+/* ---------- signature pad ---------- */
+function initSig(){
+  const c = document.getElementById("sigpad"); if(!c) return;
+  const r = c.getBoundingClientRect(), dpr = window.devicePixelRatio||1;
+  c.width = r.width*dpr; c.height = r.height*dpr;
+  const x = c.getContext("2d"); x.scale(dpr,dpr); x.lineWidth=2.4; x.lineCap="round"; x.lineJoin="round"; x.strokeStyle="#111";
+  sigDirty=false; let drawing=false;
+  const pos=e=>{ const b=c.getBoundingClientRect(); return [e.clientX-b.left, e.clientY-b.top]; };
+  c.onpointerdown=e=>{ drawing=true; c.setPointerCapture(e.pointerId); const [px,py]=pos(e); x.beginPath(); x.moveTo(px,py); };
+  c.onpointermove=e=>{ if(!drawing) return; const [px,py]=pos(e); x.lineTo(px,py); x.stroke(); sigDirty=true; };
+  c.onpointerup=c.onpointercancel=()=>{ drawing=false; };
+}
+function clearSig(){ const c=document.getElementById("sigpad"); c.getContext("2d").clearRect(0,0,c.width,c.height); sigDirty=false; }
+function doSign(){
+  const name = document.getElementById("signName").value.trim();
+  if(!name) return alert("Enter your name.");
+  if(!sigDirty) return alert("Sign in the white box.");
+  if(!confirm("Sign and lock this log? After signing, changes can only be added as dated amendments.")) return;
+  try{ L.sign(siteById(cur.siteId), cur, name, document.getElementById("sigpad").toDataURL("image/png")); }
+  catch(e){ return alert(e.message); }
+  persist(); renderView(); show("s-view");
+}
+
+/* ---------- signed view ---------- */
+function renderView(){
+  const s = siteById(cur.siteId);
+  const yes = v=>v==="Y"?"✓":v==="N"?"✗":v||"—";
+  let h = `<span class="tag">Signed Log</span><h1>${esc(fmtDate(cur.date))}</h1>
+    <p class="lead">${esc(s.projectName)} · Permit ${esc(s.permitNo)}<br>Signed by <b>${esc(cur.signedBy)}</b>, ${esc(fmtStamp(cur.signedAt))}</p>
+    <button class="btn" onclick="printLog()">Print Hard Copy</button>
+    <div class="row"><button class="btn ghost sm" onclick="exportPDF()">Download PDF</button><button class="btn ghost sm" onclick="emailLog()">Email Summary</button></div>
+    <div class="card"><div class="kv">
+      <span class="k">Prepared by</span><span>${esc(cur.preparedBy)} ${cur.trainingNo?"("+esc(cur.trainingNo)+")":""}</span>
+      ${cur.noWork? `<span class="k">Work</span><span>No dust-generating work</span>` :
+      `<span class="k">Work</span><span>${esc(cur.activities)}</span>
+      <span class="k">Hours</span><span>${esc(cur.workStart||"—")} – ${esc(cur.workEnd||"—")}</span>
+      <span class="k">Weather</span><span>${esc(cur.weather)} · wind ${esc(cur.windMph||"—")} mph, gusts ${esc(cur.gustMph||"—")}</span>
+      <span class="k">Inspections</span><span>${cur.checks.map(c=>esc(c.time)).join(", ")}</span>
+      <span class="k">Water</span><span>${L.totalWater(cur).toLocaleString()} gal in ${cur.water.length} application(s)</span>
+      <span class="k">Actions</span><span>${cur.actions.length}</span>`}
+      ${cur.notes?`<span class="k">Notes</span><span>${esc(cur.notes)}</span>`:""}
+    </div></div>`;
+  if(!cur.noWork && cur.checks.length){
+    h += `<h2>Checklist</h2><div class="card" style="overflow-x:auto"><table style="width:100%;font-size:13px;border-collapse:collapse">
+      <tr><th style="text-align:left;color:var(--mute)">Item</th>${cur.checks.map(c=>`<th style="color:var(--mute);padding:0 6px">${esc(c.time)}</th>`).join("")}</tr>
+      ${s.items.map(i=>`<tr style="border-top:1px solid var(--line)"><td style="padding:7px 0">${esc(i.label)}</td>${cur.checks.map(c=>`<td style="text-align:center">${yes(c.status[i.id])}</td>`).join("")}</tr>`).join("")}
+    </table></div>`;
+  }
+  h += `<h2>Amendments (${cur.amendments.length})</h2>`+
+    cur.amendments.map(a=>`<div class="card"><b>${esc(a.by)}</b> · ${esc(fmtStamp(a.at))}<div style="margin-top:6px">${esc(a.note)}</div></div>`).join("")+
+    `<button class="btn ghost sm" onclick="doAmend()">+ Add Amendment</button>
+    <div style="text-align:center"><button class="navlink" onclick="goHome()">← All logs</button></div>`;
+  document.getElementById("viewBody").innerHTML = h;
+}
+function doAmend(){
+  const by = prompt("Your name:", cur.signedBy); if(!by) return;
+  const note = prompt("What is being corrected or added?"); if(!note) return;
+  L.amend(cur, by.trim(), note.trim()); persist(); renderView();
+}
+
+/* ---------- exports ---------- */
+/* PDF layout. One builder is shared by download, print, print-all and the blank paper form. */
+function pdfKit(doc){
+  const W=612, M=40;
+  const k = {W, M, y:0, doc};
+  k.header = (title)=>{
+    doc.setFillColor(22,19,15); doc.rect(0,0,W,62,"F"); doc.setFillColor(255,90,0); doc.rect(0,58,W,4,"F");
+    doc.setTextColor(255,90,0); doc.setFont("helvetica","bold"); doc.setFontSize(18); doc.text(title||"RULE 310 DAILY DUST CONTROL LOG",M,32);
+    doc.setTextColor(200,200,200); doc.setFontSize(9); doc.text("Maricopa County Rule 310 · Fugitive Dust from Dust-Generating Operations",M,48);
+    k.y=86;
+  };
+  k.need = (h)=>{ if(k.y+h>740){ doc.addPage(); k.header(k.title); } };
+  k.kv = (key,v)=>{
+    const lines = doc.splitTextToSize(String(v||"—"), W-M*2-130);
+    k.need(lines.length*13+4);
+    doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(150,70,0); doc.text(key,M,k.y);
+    doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(30,30,30); doc.text(lines,M+130,k.y);
+    k.y += lines.length*13+4;
+  };
+  k.blankLine = (key)=>{ // label + write-in line for paper forms
+    k.need(22); doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(150,70,0); doc.text(key,M,k.y);
+    doc.setDrawColor(160,160,160); doc.line(M+130,k.y+2,W-M,k.y+2); k.y+=22;
+  };
+  k.section = (t)=>{ k.need(30); k.y+=8; doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor(255,90,0); doc.text(t.toUpperCase(),M,k.y); k.y+=6; doc.setDrawColor(255,90,0); doc.line(M,k.y,W-M,k.y); k.y+=14; };
+  k.footer = (left)=>{
+    const pages = doc.getNumberOfPages();
+    for(let i=1;i<=pages;i++){ doc.setPage(i); doc.setFontSize(8); doc.setTextColor(150,150,150);
+      doc.text(left,M,770); doc.text(`Page ${i} of ${pages}`,W-M,770,{align:"right"}); }
+  };
+  return k;
+}
+function siteBlock(k,s){
+  k.kv("Permit #", s.permitNo); k.kv("Permit expires", s.permitExpires); k.kv("Project", s.projectName);
+  k.kv("Location", s.address); k.kv("Permittee", s.permittee); k.kv("Disturbed acres", s.acres);
+  k.kv("Dust Control Coord.", s.dccName+(s.dccCert?" (#"+s.dccCert+")":""));
+}
+function drawLog(k, s, log, newPage){
+  const doc=k.doc, W=k.W, M=k.M;
+  if(newPage) doc.addPage();
+  k.title=null; k.header();
+  k.kv("Date", fmtDate(log.date)); siteBlock(k,s);
+  k.kv("Prepared by", log.preparedBy+(log.trainingNo?" (training #"+log.trainingNo+")":""));
+  if(log.noWork){ k.section("Activity"); k.kv("Work", "No dust-generating work this date"); }
+  else{
+    k.section("Activity & Weather");
+    k.kv("Work done", log.activities); k.kv("Work hours", (log.workStart||"—")+" – "+(log.workEnd||"—"));
+    k.kv("Weather", log.weather); k.kv("Wind / gusts", (log.windMph||"—")+" mph / "+(log.gustMph||"—")+" mph"); k.kv("Temp", log.tempF? log.tempF+" °F":"—");
+    k.section("Visual Inspections (Y / N / NA)");
+    const cols = log.checks.length, colW = Math.min(52, (W-M*2-260)/Math.max(cols,1));
+    const head = ()=>{ doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(90,90,90); doc.text("Control measure",M,k.y);
+      log.checks.forEach((c,i)=>doc.text(c.time||"?", M+270+i*colW, k.y, {align:"center"})); k.y+=12; };
+    k.need(20); head();
+    s.items.forEach((it,ii)=>{
+      const lines = doc.splitTextToSize(it.label, 255);
+      if(k.y+lines.length*11+6>740){ k.need(999); head(); }
+      if(ii%2===0){ doc.setFillColor(245,245,245); doc.rect(M-4,k.y-9,W-M*2+8,lines.length*11+4,"F"); }
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(30,30,30); doc.text(lines,M,k.y);
+      log.checks.forEach((c,i)=>{ const v=c.status[it.id]||"—"; doc.setFont("helvetica","bold"); doc.setTextColor(v==="N"?200:30, v==="Y"?140:30, 30); doc.text(v, M+270+i*colW, k.y, {align:"center"}); });
+      k.y += lines.length*11+4;
+    });
+    k.y+=4;
+    k.kv("Inspectors", log.checks.map(c=>c.time+" "+(c.inspector||"")).join("; "));
+    const comments=[]; log.checks.forEach(c=>Object.keys(c.comments||{}).forEach(id=>{ if(c.comments[id]) comments.push(c.time+" · "+L.itemLabel(s,id)+": "+c.comments[id]); }));
+    if(comments.length){ k.section("Inspection Comments"); comments.forEach((t,i)=>k.kv(String(i+1),t)); }
+    k.section("Water Applied · total "+L.totalWater(log).toLocaleString()+" gal");
+    if(!log.water.length) k.kv("—","None logged");
+    log.water.forEach(w=>k.kv(w.time||"—", `${w.gallons||0} gal · ${w.loads||"?"} load(s) · ${w.source||""} · ${w.area||""}`));
+    if(log.suppressant.length){ k.section("Suppressant / Stabilization"); log.suppressant.forEach(x=>k.kv(x.time||"—", `${x.product} · ${x.amount} · ${x.area}`)); }
+    k.section("Problems & Corrective Actions");
+    if(!log.actions.length) k.kv("—","None");
+    log.actions.forEach(a=>k.kv((a.foundAt||"?")+" → "+(a.fixedAt||"open"), (a.itemId?L.itemLabel(s,a.itemId)+": ":"")+a.issue+" | Done: "+a.action));
+  }
+  if(log.notes){ k.section("Notes"); k.kv("Notes", log.notes); }
+  k.section("Certification");
+  k.kv("Statement","I certify this log is a true and accurate record of the dust control measures carried out at this site on this date.");
+  k.kv("Signed by", log.signedBy||"NOT SIGNED (draft)"); k.kv("Signed at", fmtStamp(log.signedAt));
+  if(log.signature){ k.need(80); try{ doc.addImage(log.signature,"PNG",M+130,k.y-6,200,64); }catch(e){} k.y+=70; }
+  if(log.amendments.length){ k.section("Amendments (after signing)"); log.amendments.forEach(a=>k.kv(fmtStamp(a.at)+" "+a.by, a.note)); }
+}
+function newDoc(){ return new window.jspdf.jsPDF({unit:"pt",format:"letter"}); }
+function logPDF(log){
+  const s = siteById(log.siteId), doc = newDoc(), k = pdfKit(doc);
+  drawLog(k, s, log, false);
+  k.footer(`Permit ${s.permitNo} · ${log.date} · generated ${new Date().toLocaleString()}`);
+  return doc;
+}
+// Open the PDF with the print dialog. On phones that ignore auto-print, use Share → Print.
+function printDoc(doc){
+  doc.autoPrint();
+  const url = doc.output("bloburl");
+  const w = window.open(url, "_blank");
+  if(!w) location.href = url;
+}
+function exportPDF(){ const s=siteById(cur.siteId); logPDF(cur).save(`rule310_${slug(s.permitNo)}_${cur.date}.pdf`); }
+function printLog(){ printDoc(logPDF(cur)); }
+function printAll(){
+  const s = site();
+  const from = prompt("Print logs FROM date (YYYY-MM-DD). Leave blank for all:", "");
+  if(from===null) return;
+  const to = prompt("Print logs TO date (YYYY-MM-DD). Leave blank for all:", "");
+  if(to===null) return;
+  const ls = logsFor(s).filter(l=>(!from||l.date>=from)&&(!to||l.date<=to)).sort((a,b)=>a.date<b.date?-1:1);
+  if(!ls.length) return alert("No logs in that range.");
+  const drafts = ls.filter(l=>!l.signedAt).length;
+  if(drafts && !confirm(`${drafts} of ${ls.length} log(s) are unsigned drafts and will print marked "NOT SIGNED". Continue?`)) return;
+  const doc = newDoc(), k = pdfKit(doc);
+  ls.forEach((l,i)=>drawLog(k, s, l, i>0));
+  k.footer(`Permit ${s.permitNo} · ${ls[0].date} to ${ls[ls.length-1].date} · ${ls.length} log(s) · printed ${new Date().toLocaleString()}`);
+  printDoc(doc);
+}
+// Paper form for when no phone is available. Site details and the DCP checklist come pre-filled.
+function printBlank(){
+  const s = site(), doc = newDoc(), k = pdfKit(doc), W=k.W, M=k.M;
+  k.title = "RULE 310 DAILY DUST CONTROL LOG (PAPER)"; k.header(k.title);
+  siteBlock(k,s);
+  k.blankLine("Date"); k.blankLine("Prepared by / training #");
+  doc.setFontSize(9); doc.setTextColor(30,30,30); doc.rect(M,k.y-9,10,10); doc.text("No dust-generating work today",M+16,k.y); k.y+=18;
+  k.blankLine("Work done"); k.blankLine(""); k.blankLine("Work hours");
+  k.blankLine("Weather"); k.blankLine("Wind / gusts (mph)");
+  k.section("Visual Inspections: write Y / N / NA in each box");
+  const cols=5, colW=50, x0=W-M-cols*colW;
+  const head = ()=>{ doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(90,90,90); doc.text("Control measure",M,k.y);
+    for(let i=0;i<cols;i++){ doc.text("Time:",x0+i*colW+4,k.y); doc.setDrawColor(160,160,160); doc.line(x0+i*colW+26,k.y+1,x0+(i+1)*colW-4,k.y+1); }
+    k.y+=14; };
+  head();
+  s.items.forEach(it=>{
+    const lines = doc.splitTextToSize(it.label, x0-M-8), h = Math.max(lines.length*11, 16)+4;
+    if(k.y+h>740){ k.need(999); head(); }
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(30,30,30); doc.text(lines,M,k.y+2);
+    doc.setDrawColor(120,120,120); for(let i=0;i<cols;i++) doc.rect(x0+i*colW+4,k.y-8,colW-8,h-4);
+    k.y+=h;
+  });
+  k.y+=6; k.blankLine("Inspector initials");
+  const table = (title, heads)=>{
+    k.section(title); const cw=(W-M*2)/heads.length;
+    k.need(20); doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor(90,90,90);
+    heads.forEach((h,i)=>doc.text(h,M+i*cw+3,k.y)); k.y+=6;
+    for(let r=0;r<6;r++){ k.need(22); doc.setDrawColor(150,150,150); heads.forEach((h,i)=>doc.rect(M+i*cw,k.y,cw,20)); k.y+=20; }
+    k.y+=10;
+  };
+  table("Water Applied", ["Time","Truck / source","Loads","Gallons","Area"]);
+  table("Dust Suppressant / Stabilization", ["Time","Product / method","Amount","Area"]);
+  table("Problems & Corrective Actions", ["Found","Item / problem","What was done","Fixed"]);
+  k.section("Notes"); k.blankLine(""); k.blankLine(""); k.blankLine("");
+  k.section("Certification");
+  k.kv("Statement","I certify this log is a true and accurate record of the dust control measures carried out at this site on this date.");
+  k.blankLine("Name"); k.blankLine("Signature"); k.blankLine("Date / time signed");
+  k.footer(`Permit ${s.permitNo} · paper form · enter it in the app when you can, and keep the paper copy`);
+  printDoc(doc);
+}
+function emailLog(){
+  const s = siteById(cur.siteId);
+  const nCount = cur.checks.reduce((a,c)=>a+Object.values(c.status).filter(v=>v==="N").length,0);
+  const sub = `Rule 310 Dust Log · ${s.projectName} · Permit ${s.permitNo} · ${cur.date}`;
+  const body =
+`RULE 310 DAILY DUST CONTROL LOG
+Project: ${s.projectName}
+Permit: ${s.permitNo}
+Date: ${fmtDate(cur.date)}
+Prepared by: ${cur.preparedBy}
+${cur.noWork? "No dust-generating work this date." :
+`Work: ${cur.activities}
+Wind: ${cur.windMph||"-"} mph (gusts ${cur.gustMph||"-"})
+Inspections: ${cur.checks.map(c=>c.time).join(", ")}
+Items marked N: ${nCount}
+Water applied: ${L.totalWater(cur)} gal
+Corrective actions: ${cur.actions.length}`}
+Signed: ${cur.signedBy}, ${fmtStamp(cur.signedAt)}
+
+The signed PDF is the full record. Attach it to this email.`;
+  location.href = `mailto:?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(body)}`;
+}
+function exportCSV(){
+  const s = site();
+  dl(new Blob([L.toCSV(s, logsFor(s))],{type:"text/csv"}), `rule310_${slug(s.permitNo)}_all.csv`);
+}
+function backup(){
+  ST.lastBackup = new Date().toISOString(); persist();
+  dl(new Blob([JSON.stringify(ST,null,1)],{type:"application/json"}), `rule310_backup_${today()}.json`);
+  renderHome();
+}
+function pickRestore(){
+  const i = document.createElement("input"); i.type="file"; i.accept=".json,application/json";
+  i.onchange = ()=>{
+    const f = i.files[0]; if(!f) return;
+    f.text().then(t=>{
+      try{
+        const b = L.parseBackup(t);
+        const before = ST.logs.length;
+        ST = L.mergeStore(ST, b);
+        if(!ST.currentSiteId && ST.sites.length) ST.currentSiteId = ST.sites[0].id;
+        persist(); goHome();
+        alert(`Restored. ${ST.logs.length-before} new log(s) added. Nothing was deleted.`);
+      }catch(e){ alert(e.message); }
+    });
+  };
+  i.click();
+}
+
+/* ---------- boot ---------- */
+(function(){
+  if(!ST.currentSiteId && ST.sites.length) ST.currentSiteId = ST.sites[0].id;
+  goHome();
+  if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
+})();
+</script>
+</body>
+</html>
