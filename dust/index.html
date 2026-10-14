@@ -269,7 +269,7 @@ function startLog(date){
 function openLog(id){
   cur = ST.logs.find(l=>l.id===id);
   if(cur.signedAt){ renderView(); show("s-view"); }
-  else { renderLog(); show("s-log"); }
+  else { show("s-log"); renderLog(); }
 }
 function upd(path, val){
   // path like "weather" or "checks.0.status.water"
@@ -367,24 +367,36 @@ function renderIssues(){
 /* ---------- signature pad ---------- */
 function initSig(){
   const c = document.getElementById("sigpad"); if(!c) return;
-  const r = c.getBoundingClientRect(), dpr = window.devicePixelRatio||1;
-  c.width = r.width*dpr; c.height = r.height*dpr;
-  const x = c.getContext("2d"); x.scale(dpr,dpr); x.lineWidth=2.4; x.lineCap="round"; x.lineJoin="round"; x.strokeStyle="#111";
-  sigDirty=false; let drawing=false;
+  sigDirty=false; let drawing=false, x=null;
+  // Size the canvas when the pad is first touched: it may have been rendered while hidden (0 x 0).
+  const fit=()=>{
+    const r = c.getBoundingClientRect(), dpr = window.devicePixelRatio||1;
+    if(c.width===Math.round(r.width*dpr) && c.height===Math.round(r.height*dpr) && x) return;
+    c.width = Math.round(r.width*dpr); c.height = Math.round(r.height*dpr);
+    x = c.getContext("2d"); x.scale(dpr,dpr); x.lineWidth=2.4; x.lineCap="round"; x.lineJoin="round"; x.strokeStyle="#111";
+    sigDirty=false;
+  };
   const pos=e=>{ const b=c.getBoundingClientRect(); return [e.clientX-b.left, e.clientY-b.top]; };
-  c.onpointerdown=e=>{ drawing=true; c.setPointerCapture(e.pointerId); const [px,py]=pos(e); x.beginPath(); x.moveTo(px,py); };
-  c.onpointermove=e=>{ if(!drawing) return; const [px,py]=pos(e); x.lineTo(px,py); x.stroke(); sigDirty=true; };
+  c.onpointerdown=e=>{ e.preventDefault(); fit(); drawing=true; try{ c.setPointerCapture(e.pointerId); }catch(_){} const [px,py]=pos(e); x.beginPath(); x.moveTo(px,py); };
+  c.onpointermove=e=>{ if(!drawing) return; e.preventDefault(); const [px,py]=pos(e); x.lineTo(px,py); x.stroke(); sigDirty=true; };
   c.onpointerup=c.onpointercancel=()=>{ drawing=false; };
 }
-function clearSig(){ const c=document.getElementById("sigpad"); c.getContext("2d").clearRect(0,0,c.width,c.height); sigDirty=false; }
+function clearSig(){ const c=document.getElementById("sigpad"); c.width=c.width; initSig(); }
+// Store a small copy of the signature: full-resolution phone canvases make multi-MB logs and PDFs.
+function sigImage(){
+  const c = document.getElementById("sigpad"), w = 480, h = Math.round(w*c.height/c.width);
+  const o = document.createElement("canvas"); o.width=w; o.height=h;
+  const x = o.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,w,h); x.drawImage(c,0,0,w,h);
+  return o.toDataURL("image/png");
+}
 function doSign(){
   const name = document.getElementById("signName").value.trim();
   if(!name) return alert("Enter your name.");
   if(!sigDirty) return alert("Sign in the white box.");
   if(!confirm("Sign and lock this log? After signing, changes can only be added as dated amendments.")) return;
-  try{ L.sign(siteById(cur.siteId), cur, name, document.getElementById("sigpad").toDataURL("image/png")); }
+  try{ L.sign(siteById(cur.siteId), cur, name, sigImage()); }
   catch(e){ return alert(e.message); }
-  persist(); renderView(); show("s-view");
+  persist(); show("s-view"); renderView();
 }
 
 /* ---------- signed view ---------- */
@@ -490,8 +502,8 @@ function drawLog(k, s, log, newPage){
     if(comments.length){ k.section("Inspection Comments"); comments.forEach((t,i)=>k.kv(String(i+1),t)); }
     k.section("Water Applied · total "+L.totalWater(log).toLocaleString()+" gal");
     if(!log.water.length) k.kv("—","None logged");
-    log.water.forEach(w=>k.kv(w.time||"—", `${w.gallons||0} gal · ${w.loads||"?"} load(s) · ${w.source||""} · ${w.area||""}`));
-    if(log.suppressant.length){ k.section("Suppressant / Stabilization"); log.suppressant.forEach(x=>k.kv(x.time||"—", `${x.product} · ${x.amount} · ${x.area}`)); }
+    log.water.forEach(w=>k.kv(w.time||"—", [(w.gallons||0)+" gal", w.loads&&w.loads+" load(s)", w.source, w.area].filter(Boolean).join(" · ")));
+    if(log.suppressant.length){ k.section("Suppressant / Stabilization"); log.suppressant.forEach(x=>k.kv(x.time||"—", [x.product, x.amount, x.area].filter(Boolean).join(" · "))); }
     k.section("Problems & Corrective Actions");
     if(!log.actions.length) k.kv("—","None");
     log.actions.forEach(a=>k.kv((a.foundAt||"?")+" → "+(a.fixedAt||"open"), (a.itemId?L.itemLabel(s,a.itemId)+": ":"")+a.issue+" | Done: "+a.action));
@@ -500,7 +512,7 @@ function drawLog(k, s, log, newPage){
   k.section("Certification");
   k.kv("Statement","I certify this log is a true and accurate record of the dust control measures carried out at this site on this date.");
   k.kv("Signed by", log.signedBy||"NOT SIGNED (draft)"); k.kv("Signed at", fmtStamp(log.signedAt));
-  if(log.signature){ k.need(80); try{ doc.addImage(log.signature,"PNG",M+130,k.y-6,200,64); }catch(e){} k.y+=70; }
+  if(log.signature){ k.need(80); try{ doc.addImage(log.signature,"PNG",M+130,k.y-6,200,64,undefined,"FAST"); }catch(e){} k.y+=70; }
   if(log.amendments.length){ k.section("Amendments (after signing)"); log.amendments.forEach(a=>k.kv(fmtStamp(a.at)+" "+a.by, a.note)); }
 }
 function newDoc(){ return new window.jspdf.jsPDF({unit:"pt",format:"letter"}); }
